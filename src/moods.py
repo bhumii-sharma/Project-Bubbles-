@@ -1,11 +1,11 @@
 import random
 
 MOODS = [
-    "Happy 🫧",
-    "Curious 🤔",
-    "Excited ✨",
-    "Protective 🤍",
-    "Chaotic 🌪️"
+    "Happy",
+    "Curious",
+    "Excited",
+    "Protective",
+    "Chaotic"
 ]
 
 def get_mood():
