@@ -392,3 +392,23 @@ AI-based trigger detection.
 No implementation has been chosen yet.
 
 The architecture discussion is currently in progress.
+
+## Architecture Decision #001
+
+### Title
+Separate Trigger Detection from Reactions
+
+### Decision
+The Trigger Engine will only detect what the user said.
+
+It will not generate responses.
+
+### Reason
+This follows the Single Responsibility Principle.
+
+It also allows multiple systems (voice, animation, memory, personality) to react to the same trigger in the future.
+
+### Trade-off
+Slightly more code today.
+
+Much cleaner architecture tomorrow.
