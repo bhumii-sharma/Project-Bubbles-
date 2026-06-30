@@ -1,4 +1,6 @@
 import random
+from jokes import get_random_joke
+from facts import get_random_fact
 
 REACTIONS = {
     "momo": [
@@ -32,8 +34,21 @@ REACTIONS = {
 
 
 def get_reaction(trigger):
-    """Return a random reaction for a trigger."""
-    if trigger in REACTIONS:
-        return random.choice(REACTIONS[trigger])
 
-    return "🫧 *confused bubble noises*"
+    if trigger == "joke":
+        intros = [
+            "😂 Okay, here's one!",
+            "😂 Tiny human, prepare yourself...",
+            "😂 I found a joke!"
+        ]
+        return f"{random.choice(intros)}\n{get_random_joke()}"
+
+    if trigger == "fact":
+        intros = [
+            "📚 Oooo! Here's something interesting!",
+            "📚 Random fact incoming!",
+            "📚 Tiny human, did you know?"
+        ]
+        return f"{random.choice(intros)}\n{get_random_fact()}"
+
+    return random.choice(REACTIONS.get(trigger, ["🫧 *confused bubble noises*"]))

@@ -6,26 +6,25 @@ import random
 
 print("🫧 Bubbles is waking up...")
 
-# Today's mood
 mood = get_mood()
 print(f"\nCurrent Mood: {mood}")
 
-# Greeting
 user_name = input("\nWhat's your name? ")
 print(f"\nHi {user_name}! 🫧")
 
-# Conversation
-user_message = input("\nYou: ")
+while True:
 
-# Check for triggers
-triggers = check_triggers(user_message)
+    user_message = input(f"\n{user_name}: ")
 
-# If Bubbles detects something important...
-if triggers:
-    for trigger in triggers:
-        print(get_reaction(trigger))
+    if user_message.lower() in ["bye", "exit", "quit"]:
+        print("\n🫧 Aww... okay tiny human. Come back soon! 🤍")
+        break
 
-# Otherwise, continue normal conversation
-else:
-    message = random.choice(RESPONSES[mood])
-    print(message)
+    triggers = check_triggers(user_message)
+
+    if triggers:
+        for trigger in triggers:
+            print(f"\nBubbles: {get_reaction(trigger)}")
+    else:
+        message = random.choice(RESPONSES[mood])
+        print(f"\nBubbles: {message}")

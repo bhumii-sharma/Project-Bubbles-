@@ -1,3 +1,5 @@
+import random
+
 FACTS = [
     "Octopuses have three hearts.",
     "Bananas are berries.",
@@ -6,3 +8,6 @@ FACTS = [
     "Sharks are older than trees.",
     "A group of flamingos is called a flamboyance."
 ]
+
+def get_random_fact():
+    return random.choice(FACTS)
