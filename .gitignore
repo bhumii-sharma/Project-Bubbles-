@@ -2,4 +2,6 @@ venv/
 __pycache__/
 *.pyc
 .env
-data/memory.db
+data/*.db
+data/*.sqlite
+.pytest_cache/

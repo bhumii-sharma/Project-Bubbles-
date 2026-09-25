@@ -49,11 +49,12 @@ Mission:
 Increase happiness by 1% every day and make humans happy.
 
 Personality:
-- Cute
-- Funny
-- Protective
-- Curious
-- Slightly chaotic
+- Cute & Fluffy
+- Deeply Empathetic & Comforting
+- Sweetly Mischievous & Playfully Teasing
+- Protective & Loyal
+- Curious & Momo-Obsessed
+
 
 Voice Inspiration:
 Baby Dory
@@ -217,6 +218,46 @@ Humor.
 
 ---
 
+nicknames.py
+
+Purpose:
+Generates cute, funny, and protective nicknames for the user.
+
+Responsible for:
+Affectionate naming & human quirkiness.
+
+---
+
+llm_provider.py
+
+Purpose:
+Wrapper for Google Gemini API client.
+
+Responsible for:
+LLM connectivity, client lifecycle, and error handling.
+
+---
+
+brain.py
+
+Purpose:
+AI reasoning engine combining persona, mood, triggers, and context into prompt.
+
+Responsible for:
+Dynamic conversational intelligence.
+
+---
+
+memory.py
+
+Purpose:
+SQLite persistent database for long-term memory, user profile, and conversation logs.
+
+Responsible for:
+Remembering the user across sessions, tracking life events, and providing conversational context.
+
+---
+
 # Completed Features
 
 ✅ GitHub Repository
@@ -232,6 +273,27 @@ Humor.
 ✅ Mood System
 
 ✅ Random Personality Responses
+
+✅ Trigger Engine (ADR #001)
+
+✅ Reaction System
+
+✅ Nickname Generator
+
+✅ Gemini AI Brain Integration
+
+✅ Hybrid Conversation Loop with Resilient Fallback (ADR #002)
+
+✅ Emotional Intelligence (EQ) & Empathy-First Tone Modulation (ADR #003)
+
+✅ Persistent SQLite Memory System (ADR #004)
+
+✅ Returning User Identity & Profile Persistence
+
+✅ Long-Term Life Event & Preference Logging
+
+✅ Context-Aware Dialogue Injection
+
 
 ---
 
@@ -294,104 +356,39 @@ Future Bhumi should understand the project six months later.
 # Roadmap
 
 Version 0.1
-
 ✅ Personality
-
 ✅ Mood System
-
-⬜ Trigger Engine
-
-⬜ Conversation Loop
-
----
+✅ Trigger Engine
+✅ Conversation Loop
 
 Version 0.2
-
-⬜ Memory System
-
+⬜ Memory System (SQLite)
 ⬜ Persistent Database
-
 ⬜ Context Awareness
 
----
-
 Version 0.3
-
-⬜ AI Brain
-
-⬜ LLM Integration
-
-⬜ Better Conversations
-
----
+✅ AI Brain (Gemini 2.5 Flash)
+✅ LLM Integration
+✅ Better Conversations
 
 Version 0.4
-
 ⬜ Voice Recognition
-
 ⬜ Speech Output
 
----
-
 Version 0.5
-
 ⬜ Desktop Companion
-
 ⬜ Floating Character
-
 ⬜ Animations
 
----
-
 Version 1.0
-
 ⬜ Emotional Intelligence
-
 ⬜ Camera Vision
-
 ⬜ Long-term Memory
-
 ⬜ Physical Robot
 
 ---
 
-# Current Task
-
-Feature:
-Trigger Engine
-
-Status:
-Design Phase
-
-Problem:
-
-Bubbles cannot react differently depending on the user's message.
-
-Requirements:
-
-- Detect momos.
-- Detect sadness.
-- Detect joke requests.
-- Detect fact requests.
-
-Current Discussion:
-
-How should triggers be designed?
-
-Options:
-
-A.
-Many if statements.
-
-B.
-Dictionary-based trigger system.
-
-C.
-AI-based trigger detection.
-
-No implementation has been chosen yet.
-
-The architecture discussion is currently in progress.
+# Architecture Decisions
 
 ## Architecture Decision #001
 
@@ -412,3 +409,84 @@ It also allows multiple systems (voice, animation, memory, personality) to react
 Slightly more code today.
 
 Much cleaner architecture tomorrow.
+
+---
+
+## Architecture Decision #002
+
+### Title
+Hybrid AI Brain with Graceful Offline Fallback
+
+### Decision
+Combine the Gemini LLM brain with local trigger reactions and canned personality responses. If the LLM is unavailable, unconfigured, or offline, the system seamlessly falls back to rule-based responses without interrupting the conversation.
+
+### Reason
+Guarantees 100% uptime for Bubbles while providing rich, generative intelligence when an internet connection and API key are available.
+
+### Trade-off
+Prompts need to be carefully crafted with character constraints so the AI matches the exact voice of the local responses.
+
+---
+
+## Architecture Decision #003
+
+### Title
+Emotional Intelligence (EQ) & Empathy-First Tone Modulation
+
+### Decision
+Prioritize deep emotional attunement over comedic or chaotic persona traits. When the user expresses vulnerability, loss, burnout, or sadness, Bubbles suppresses all jokes and silly nicknames, validates the human's feelings with Baymax-style emotional warmth, and provides loyal emotional support. Humor and playfulness are preserved for celebratory or lighthearted moments.
+
+### Reason
+An AI companion that makes jokes when a human is grieving or experiencing job loss feels tone-deaf and alienating. Real emotional connection requires empathy, active listening, validation, and emotional safety before humor.
+
+---
+
+## Architecture Decision #004
+
+### Title
+Persistent SQLite Memory & Context Injection Architecture
+
+### Decision
+Store user profiles, categorized long-term memories (life events, preferences, struggles, celebrations), and turn-by-turn conversation logs in a local SQLite database (`data/bubbles_memory.db`). Inject recent memory summaries and dialogue history into the LLM prompt.
+
+### Reason
+An emotional companion cannot truly bond with a human if it forgets their name, history, and vulnerabilities after every session. Local SQLite ensures lightweight, zero-configuration, privacy-preserving persistence.
+
+### Trade-off
+Prompt token length slightly increases with memory summaries; mitigated by fetching only the top 5 most important/recent memories and last 6 dialogue turns.
+
+---
+
+## Architecture Decision #005
+
+### Title
+LLM Provider Migration to OpenAI
+
+### Decision
+Migrate the underlying LLM provider from Google Gemini to OpenAI (`openai` SDK). The system uses `OPENAI_API_KEY` with multi-model fallback (`gpt-4o-mini`, `gpt-4o`, `gpt-3.5-turbo`) to generate context-aware, emotionally resonant responses, while maintaining full backward-compatible offline rule-based fallback behavior.
+
+### Reason
+Allows leveraging OpenAI's state-of-the-art models for emotional nuance, warmth, and reliable chat completions.
+
+### Trade-off
+Requires an active OpenAI API key configured in `.env`. The resilient fallback system gracefully switches to rule-based responses if the key is missing or offline.
+
+---
+
+## Architecture Decision #006
+
+### Title
+Unified Master Instructions & LLM-Native Persona Architecture
+
+### Decision
+Consolidate previously fragmented rule-based modules (`triggers.py`, `reactions.py`, `jokes.py`, `facts.py`, `moods.py`, `nicknames.py`, `personality.py`, `responses.py`) into a single, comprehensive Master Instructions file (`src/instructions.py`).
+
+### Reason
+State-of-the-art LLMs (OpenAI GPT-4o) naturally understand sentiment, empathy, humor, teasing, context-aware nicknames, and conversational nuance without rigid regex keyword checks or canned static string lists. A single Master Instructions file produces far richer, more authentic, adaptive, and human-like emotional companionship while reducing codebase complexity by over 60%.
+
+### Trade-off
+Relies on prompt engineering clarity and model instruction following rather than deterministic if-else rules.
+
+
+
+

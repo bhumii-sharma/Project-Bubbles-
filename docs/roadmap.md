@@ -11,11 +11,11 @@
 
 ---
 
-## Phase 2 — Conversation
+## Phase 2 — Conversation ✅
 
 - Trigger Engine
 - Conversation Loop
-- Better Personality
+- Emotionally Intelligent Personality
 - Nickname Generator
 - Momo Reactions
 - Joke System
@@ -23,22 +23,24 @@
 
 ---
 
-## Phase 3 — Memory
+## Phase 3 — Memory ✅
 
 - SQLite Database
 - Save Memories
 - Retrieve Memories
 - Long-term Memory
-- Memory Importance
+- Memory Importance & Life Events
+- Returning User Recognition
 
 ---
 
-## Phase 4 — Intelligence
+## Phase 4 — Intelligence ✅
 
-- AI Brain
-- Prompt Engineering
-- Context Window
-- Reasoning
+- AI Brain (OpenAI GPT-4o-mini / GPT-4o)
+- Empathy & Emotional Attunement Prompting
+- Context Window & History Injection
+- Resilient Offline Fallback (ADR #002)
+
 
 ---
 
