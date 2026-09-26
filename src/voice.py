@@ -53,21 +53,21 @@ except ImportError:
     sr = None
 
 
-# Multilingual Voice Profiles (Neural Edge-TTS)
+# Multilingual Voice Profiles (Baby Dory inspired cute, bubbly, child/female voices)
 VOICE_MAP = {
     "hindi": {
-        "voice": "hi-IN-SwaraNeural",           # Sweet, expressive native Hindi voice
-        "pitch": "+5Hz",
-        "rate": "+2%",
+        "voice": "hi-IN-SwaraNeural",             # High-pitch, adorable Baby Dory Hindi voice
+        "pitch": "+22Hz",
+        "rate": "+6%",
     },
     "hinglish": {
-        "voice": "en-IN-NeerjaExpressiveNeural",  # Natural Indian accent for Roman Hinglish
-        "pitch": "+6Hz",
-        "rate": "+4%",
+        "voice": "en-IN-NeerjaExpressiveNeural",  # High-pitch, sweet Baby Dory Hinglish voice
+        "pitch": "+20Hz",
+        "rate": "+6%",
     },
     "english": {
-        "voice": "en-US-AnaNeural",              # Cute, warm Baby Dory child voice
-        "pitch": "+8Hz",
+        "voice": "en-US-AnaNeural",                # Cheerful Baby Dory English voice
+        "pitch": "+10Hz",
         "rate": "+5%",
     },
 }
