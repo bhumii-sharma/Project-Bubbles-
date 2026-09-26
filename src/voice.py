@@ -63,42 +63,62 @@ DEFAULT_LANGUAGE = os.getenv("BUBBLES_LANGUAGE", "en-IN")
 _mixer_lock = threading.Lock()
 _mixer_initialized = False
 
-# Speech recognition instance & calibration lock
+# Speech recognition instance & microphone instance
 _sr_lock = threading.Lock()
 _recognizer = None
+_microphone = None
 _calibrated = False
 
 
 def _get_recognizer():
-    """Lazily initializes and tunes SpeechRecognizer with balanced sensitivity."""
+    """Lazily initializes and tunes SpeechRecognizer with adaptive room noise sensitivity."""
     global _recognizer
     if not _SR_AVAILABLE or sr is None:
         return None
     with _sr_lock:
         if _recognizer is None:
             _recognizer = sr.Recognizer()
-            # Balanced energy threshold to ignore breathing, sighing, and ambient background hum
-            _recognizer.energy_threshold = 380
+            _recognizer.energy_threshold = 150  # Sensitive base threshold
             _recognizer.dynamic_energy_threshold = True
             _recognizer.dynamic_energy_adjustment_damping = 0.15
-            _recognizer.dynamic_energy_ratio = 1.5
-            _recognizer.pause_threshold = 0.8  # Natural conversational pause
-            _recognizer.phrase_threshold = 0.3  # Requires intentional speech, ignores quick sniffs/clicks
-            _recognizer.non_speaking_duration = 0.4
+            _recognizer.dynamic_energy_ratio = 1.4
+            _recognizer.pause_threshold = 0.8  # 0.8s natural conversational pause
+            _recognizer.phrase_threshold = 0.25  # Responsive phrase onset
+            _recognizer.non_speaking_duration = 0.35
         return _recognizer
 
 
-def calibrate_microphone(duration: float = 0.5) -> bool:
-    """Calibrates microphone ambient noise once at startup."""
+def _get_microphone():
+    """Returns a shared SpeechRecognition Microphone instance."""
+    global _microphone
+    if not _SR_AVAILABLE or sr is None:
+        return None
+    with _sr_lock:
+        if _microphone is None:
+            try:
+                _microphone = sr.Microphone()
+            except Exception:
+                _microphone = None
+        return _microphone
+
+
+def calibrate_microphone(duration: float = 0.8) -> bool:
+    """Calibrates microphone ambient noise once at startup based on actual room acoustics."""
     global _calibrated
     if not _SR_AVAILABLE or sr is None:
         return False
     rec = _get_recognizer()
-    if not rec:
+    mic = _get_microphone()
+    if not rec or not mic:
         return False
     try:
-        with sr.Microphone() as source:
+        with mic as source:
             rec.adjust_for_ambient_noise(source, duration=duration)
+            # Ensure energy threshold is comfortably above ambient noise but sensitive to voice
+            if rec.energy_threshold < 120:
+                rec.energy_threshold = 140
+            elif rec.energy_threshold > 450:
+                rec.energy_threshold = 350
             _calibrated = True
             return True
     except Exception:
@@ -212,10 +232,6 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
     """
     Speaks the given text using high-quality Baby Dory neural TTS (en-US-AnaNeural)
     with seamless offline fallback (pyttsx3) and verified real-time interruption (barge-in).
-
-    Verified Interruption Guarantee:
-    - Audio is ONLY stopped if actual recognized human speech is detected.
-    - Breathing, sighs, coughs, and ambient noise are ignored, allowing speech to continue uninterrupted.
     """
     cleaned_text = clean_text_for_speech(text)
     if not cleaned_text:
@@ -254,17 +270,17 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
             recognized_holder = {"text": None}
 
             stop_listener = None
+            mic = _get_microphone()
 
-            if allow_interrupt and _SR_AVAILABLE and sr is not None:
-                # Dedicated interruption recognizer with higher threshold to prevent speaker feedback & breath triggers
+            if allow_interrupt and _SR_AVAILABLE and sr is not None and mic:
+                # Interruption recognizer with calibrated sensitivity
                 inter_rec = sr.Recognizer()
-                inter_rec.energy_threshold = 550  # Intentional human voice threshold
+                inter_rec.energy_threshold = 400
                 inter_rec.dynamic_energy_threshold = False
-                inter_rec.phrase_threshold = 0.35  # Requires intentional speech (filters out short breath/rustle)
-                inter_rec.pause_threshold = 0.8
+                inter_rec.phrase_threshold = 0.3
+                inter_rec.pause_threshold = 0.75
 
                 def _on_phrase_detected(recognizer, audio):
-                    # 1. First verify if actual human words were spoken (DO NOT cut off on noise/breathing)
                     spoken_text = None
                     for lang in ["en-IN", "en-US", "hi-IN"]:
                         try:
@@ -275,7 +291,6 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
                         except Exception:
                             continue
 
-                    # 2. ONLY cut off playback if valid speech was recognized!
                     if spoken_text:
                         try:
                             if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
@@ -286,13 +301,11 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
                         interrupted_event.set()
 
                 try:
-                    mic = sr.Microphone()
                     stop_listener = inter_rec.listen_in_background(mic, _on_phrase_detected, phrase_time_limit=10)
                 except Exception:
                     stop_listener = None
 
             try:
-                # Wait for audio to finish OR until verified interruption occurs
                 while pygame.mixer.music.get_busy():
                     if interrupted_event.is_set():
                         break
@@ -330,7 +343,6 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
             }
 
         except Exception:
-            # Fall back to offline TTS on network failure or edge-tts exception
             pass
         finally:
             if temp_file and os.path.exists(temp_file):
@@ -343,27 +355,27 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
     return _speak_offline_fallback(cleaned_text)
 
 
-def listen(timeout: int = 7, phrase_time_limit: int = 15, language: str = DEFAULT_LANGUAGE) -> str | None:
+def listen(timeout: int = 10, phrase_time_limit: int = 15, language: str = DEFAULT_LANGUAGE) -> str | None:
     """
-    Captures audio from the microphone with balanced sensitivity and converts speech to text.
-    Filters out background noise, breathing, and sighing while reliably capturing conversational speech.
-    Returns the recognized string, or None if silence/timeout.
+    Captures audio from the microphone with crystal-clear sensitivity and converts speech to text.
+    Accurately transcribes conversational English without clipping.
     """
     if not _SR_AVAILABLE or sr is None:
         return None
 
     recognizer = _get_recognizer()
-    if not recognizer:
+    mic = _get_microphone()
+    if not recognizer or not mic:
         return None
 
     try:
-        with sr.Microphone() as source:
+        with mic as source:
             print("🎤 Listening... (speak freely)")
             audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
 
         print("🔄 Processing speech...")
         
-        # 1. Primary recognition (Indian English / en-IN - highly accurate for Indian English speech)
+        # 1. Primary recognition (Indian English / en-IN - best accuracy for Indian English accents)
         try:
             transcript = recognizer.recognize_google(audio, language="en-IN")
             if transcript and len(transcript.strip()) >= 2:
@@ -403,8 +415,11 @@ def is_voice_input_available() -> bool:
     """Checks if speech recognition and microphone hardware are accessible."""
     if not _SR_AVAILABLE or sr is None:
         return False
+    mic = _get_microphone()
+    if not mic:
+        return False
     try:
-        with sr.Microphone():
+        with mic:
             return True
     except Exception:
         return False
@@ -417,7 +432,7 @@ def is_tts_available() -> bool:
 
 if __name__ == "__main__":
     print("\n" + "=" * 50)
-    print("🫧 Testing Bubbles Voice Engine (English Baby Dory with Verified Interruption)")
+    print("🫧 Testing Bubbles Voice Engine (English Baby Dory)")
     print("=" * 50)
     test_phrase = "🫧 Hi Little Star! 🥟 I'm Bubbles, your favorite momo companion! ✨🤍"
     print(f"\nOriginal text: {test_phrase}")
@@ -429,8 +444,10 @@ if __name__ == "__main__":
     print(f"Playback status: {'✅ SUCCESS' if result.get('success') else '❌ FAILED'}")
 
     if is_voice_input_available():
-        print("\n🎤 Testing microphone... (Say something in English within 5s)")
-        spoken = listen(timeout=5, phrase_time_limit=10)
+        print("\nCalibrating microphone ambient noise...")
+        calibrate_microphone(duration=0.8)
+        print("\n🎤 Testing microphone... (Say something in English within 8s)")
+        spoken = listen(timeout=8, phrase_time_limit=10)
         print(f"Recognized speech: {spoken}")
     else:
         print("\n🎤 Microphone hardware not detected (Text input will be used).")

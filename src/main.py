@@ -27,6 +27,7 @@ try:
     from voice import (
         speak,
         listen,
+        calibrate_microphone,
         is_tts_available,
         is_voice_input_available,
     )
@@ -44,6 +45,7 @@ except ImportError:
     from src.voice import (
         speak,
         listen,
+        calibrate_microphone,
         is_tts_available,
         is_voice_input_available,
     )
@@ -115,6 +117,10 @@ def start_bubbles():
     print("🫧  Bubbles is waking up...")
     print("=" * 55)
 
+    # Calibrate microphone for room noise once at startup
+    if mic_ready:
+        calibrate_microphone(duration=0.6)
+
     # Check if returning human or first meeting
     stored_name = get_profile_value("user_name")
     stored_nickname = get_profile_value("nickname")
@@ -148,7 +154,7 @@ def start_bubbles():
         if not user_message:
             # 1. Hands-Free Voice Listening Mode (when microphone is available)
             if mic_ready:
-                spoken_text = listen(timeout=7, phrase_time_limit=15)
+                spoken_text = listen(timeout=10, phrase_time_limit=15)
                 if spoken_text:
                     print(f"\n{nickname} (voice): {spoken_text}")
                     user_message = spoken_text
