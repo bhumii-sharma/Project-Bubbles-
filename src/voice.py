@@ -169,37 +169,16 @@ async def _generate_edge_tts_audio(text: str, output_path: str, voice: str = DEF
     await communicate.save(output_path)
 
 
-def _play_audio_file(file_path: str, block: bool = True):
-    """Plays an audio file using Pygame Mixer and releases file lock upon completion."""
-    if not _init_mixer():
-        return False
-
-    try:
-        pygame.mixer.music.load(file_path)
-        pygame.mixer.music.play()
-        if block:
-            while pygame.mixer.music.get_busy():
-                time.sleep(0.05)
-            # Stop and unload to release Windows file lock
-            pygame.mixer.music.stop()
-            pygame.mixer.music.unload()
-        return True
-    except Exception:
-        return False
-
-
-def _speak_offline_fallback(text: str):
+def _speak_offline_fallback(text: str) -> dict:
     """Offline speech fallback using native OS SAPI5 / espeak via pyttsx3."""
     if not _PYTTSX3_AVAILABLE or pyttsx3 is None:
-        return False
+        return {"success": False, "interrupted": False, "user_text": None}
 
     try:
         engine = pyttsx3.init()
-        # Set speed & volume
         engine.setProperty("rate", 175)
         engine.setProperty("volume", 1.0)
 
-        # Try to select female voice if available
         voices = engine.getProperty("voices")
         for v in voices:
             if "zira" in v.name.lower() or "female" in v.name.lower() or "david" not in v.name.lower():
@@ -208,9 +187,9 @@ def _speak_offline_fallback(text: str):
 
         engine.say(text)
         engine.runAndWait()
-        return True
+        return {"success": True, "interrupted": False, "user_text": None}
     except Exception:
-        return False
+        return {"success": False, "interrupted": False, "user_text": None}
 
 
 def _run_coroutine(coro):
@@ -227,15 +206,21 @@ def _run_coroutine(coro):
         return asyncio.run(coro)
 
 
-def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, block: bool = True) -> bool:
+def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, block: bool = True, allow_interrupt: bool = True) -> dict:
     """
     Speaks the given text using high-quality Baby Dory neural TTS (en-US-AnaNeural)
-    with seamless offline fallback (pyttsx3).
-    Automatically sanitizes text (removes emojis and roleplay asterisks).
+    with seamless offline fallback (pyttsx3) and real-time interruption (barge-in) detection.
+
+    Returns dict:
+        {
+            "success": bool,
+            "interrupted": bool,
+            "user_text": str | None
+        }
     """
     cleaned_text = clean_text_for_speech(text)
     if not cleaned_text:
-        return False
+        return {"success": False, "interrupted": False, "user_text": None}
 
     selected_voice = voice if voice else DEFAULT_VOICE
     selected_pitch = pitch if pitch is not None else DEFAULT_PITCH
@@ -257,9 +242,91 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
                 rate=selected_rate,
             ))
 
-            # Play audio
-            success = _play_audio_file(temp_file, block=block)
-            return success
+            if not _init_mixer():
+                return {"success": False, "interrupted": False, "user_text": None}
+
+            pygame.mixer.music.load(temp_file)
+            pygame.mixer.music.play()
+
+            if not block:
+                return {"success": True, "interrupted": False, "user_text": None}
+
+            interrupted_event = threading.Event()
+            recognized_holder = {"text": None}
+
+            stop_listener = None
+            rec = _get_recognizer()
+
+            if allow_interrupt and _SR_AVAILABLE and sr is not None and rec:
+                def _on_phrase_detected(recognizer, audio):
+                    # Immediately cut off audio playback the millisecond user speaks
+                    try:
+                        if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+                            pygame.mixer.music.stop()
+                    except Exception:
+                        pass
+                    interrupted_event.set()
+
+                    # Transcribe interruption speech
+                    for lang in ["en-IN", "en-US", "hi-IN"]:
+                        try:
+                            transcript = recognizer.recognize_google(audio, language=lang)
+                            if transcript and transcript.strip():
+                                recognized_holder["text"] = transcript.strip()
+                                break
+                        except Exception:
+                            continue
+
+                try:
+                    mic = sr.Microphone()
+                    stop_listener = rec.listen_in_background(mic, _on_phrase_detected, phrase_time_limit=12)
+                except Exception:
+                    stop_listener = None
+
+            try:
+                # Wait for audio to finish OR until interrupted by user
+                while pygame.mixer.music.get_busy():
+                    if interrupted_event.is_set():
+                        break
+                    time.sleep(0.04)
+            finally:
+                if stop_listener:
+                    try:
+                        stop_listener(wait_for_stop=False)
+                    except Exception:
+                        pass
+
+            if interrupted_event.is_set():
+                # Allow a short grace window (up to 1s) for transcription to complete
+                for _ in range(20):
+                    if recognized_holder["text"]:
+                        break
+                    time.sleep(0.05)
+
+                try:
+                    pygame.mixer.music.stop()
+                    pygame.mixer.music.unload()
+                except Exception:
+                    pass
+
+                return {
+                    "success": True,
+                    "interrupted": True,
+                    "user_text": recognized_holder["text"]
+                }
+
+            try:
+                pygame.mixer.music.stop()
+                pygame.mixer.music.unload()
+            except Exception:
+                pass
+
+            return {
+                "success": True,
+                "interrupted": False,
+                "user_text": None
+            }
+
         except Exception:
             # Fall back to offline TTS on network failure or edge-tts exception
             pass
@@ -348,7 +415,7 @@ def is_tts_available() -> bool:
 
 if __name__ == "__main__":
     print("\n" + "=" * 50)
-    print("🫧 Testing Bubbles Voice Engine (English Baby Dory)")
+    print("🫧 Testing Bubbles Voice Engine (English Baby Dory with Interruption)")
     print("=" * 50)
     test_phrase = "🫧 Hi Little Star! 🥟 I'm Bubbles, your favorite momo companion! ✨🤍"
     print(f"\nOriginal text: {test_phrase}")
@@ -356,12 +423,12 @@ if __name__ == "__main__":
     print(f"Sanitized text: {sanitized}")
 
     print("\n🔊 Speaking test phrase with Baby Dory voice...")
-    success = speak(test_phrase, block=True)
-    print(f"Playback status: {'✅ SUCCESS' if success else '❌ FAILED'}")
+    result = speak(test_phrase, block=True, allow_interrupt=False)
+    print(f"Playback status: {'✅ SUCCESS' if result.get('success') else '❌ FAILED'}")
 
     if is_voice_input_available():
         print("\n🎤 Testing microphone... (Say something in English within 5s)")
-        result = listen(timeout=5, phrase_time_limit=10)
-        print(f"Recognized speech: {result}")
+        spoken = listen(timeout=5, phrase_time_limit=10)
+        print(f"Recognized speech: {spoken}")
     else:
         print("\n🎤 Microphone hardware not detected (Text input will be used).")

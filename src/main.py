@@ -103,7 +103,7 @@ def get_dynamic_fallback(user_message, nickname):
 
 
 def start_bubbles():
-    """Main execution loop for Bubbles conversational companion."""
+    """Main execution loop for Bubbles conversational companion with real-time barge-in interruption."""
     # Initialize persistent memory database
     init_db()
 
@@ -125,7 +125,7 @@ def start_bubbles():
         greeting = f"Welcome back, {nickname}! 🫧🤍 I missed you so much!"
         print(f"\nBubbles: {greeting}")
         if voice_enabled:
-            speak(f"Welcome back, {nickname}! I missed you so much!")
+            speak(f"Welcome back, {nickname}! I missed you so much!", allow_interrupt=False)
     else:
         user_name = input("\nWhat's your name? ").strip()
         if not user_name:
@@ -137,55 +137,59 @@ def start_bubbles():
         greeting = f"Hi {user_name}! From now on, you're my favorite {nickname}! 🫧🤍"
         print(f"\nBubbles: {greeting}")
         if voice_enabled:
-            speak(f"Hi {user_name}! From now on, you are my favorite {nickname}!")
+            speak(f"Hi {user_name}! From now on, you are my favorite {nickname}!", allow_interrupt=False)
 
-    print("\n(Commands: 'bye' = exit, 'mute' / 'unmute' = toggle voice)\n" + "-" * 55)
+    print("\n(Commands: 'bye' = exit, 'mute' / 'unmute' = toggle voice)\n(You can interrupt Bubbles anytime while she is talking!)\n" + "-" * 55)
+
+    user_message = None
 
     while True:
-        user_message = None
-
-        # 1. Hands-Free Voice Listening Mode (when microphone is available)
-        if mic_ready:
-            spoken_text = listen(timeout=7, phrase_time_limit=15)
-            if spoken_text:
-                print(f"\n{nickname} (voice): {spoken_text}")
-                user_message = spoken_text
-            else:
-                # Silence / timeout: continue loop to keep listening hands-free
-                continue
-        else:
-            # 2. Keyboard Input Mode (fallback if no microphone is plugged in)
-            try:
-                prompt_label = f"\n{nickname}: "
-                user_input = input(prompt_label).strip()
-                if user_input:
-                    user_message = user_input
+        # If user_message was not already populated by a voice interruption:
+        if not user_message:
+            # 1. Hands-Free Voice Listening Mode (when microphone is available)
+            if mic_ready:
+                spoken_text = listen(timeout=7, phrase_time_limit=15)
+                if spoken_text:
+                    print(f"\n{nickname} (voice): {spoken_text}")
+                    user_message = spoken_text
                 else:
+                    # Silence / timeout: continue loop to keep listening hands-free
                     continue
-            except (KeyboardInterrupt, EOFError):
-                print("\n\n🫧 *gasps* Goodbye tiny human! 🤍")
-                if voice_enabled:
-                    speak("Goodbye tiny human! Take care!")
-                break
+            else:
+                # 2. Keyboard Input Mode (fallback if no microphone is plugged in)
+                try:
+                    prompt_label = f"\n{nickname}: "
+                    user_input = input(prompt_label).strip()
+                    if user_input:
+                        user_message = user_input
+                    else:
+                        continue
+                except (KeyboardInterrupt, EOFError):
+                    print("\n\n🫧 *gasps* Goodbye tiny human! 🤍")
+                    if voice_enabled:
+                        speak("Goodbye tiny human! Take care!", allow_interrupt=False)
+                    break
 
         msg_clean = user_message.lower().strip().strip(".!?,")
 
         # Handle Voice / Session Commands
         if msg_clean in ["mute", "stop talking", "turn off voice"]:
             voice_enabled = False
+            user_message = None
             print("🔇 Voice output muted.")
             continue
         elif msg_clean in ["unmute", "talk to me", "turn on voice", "speak"]:
             voice_enabled = True
+            user_message = None
             print("🔊 Voice output enabled.")
             if tts_ready:
-                speak("Voice protocol re-activated!")
+                speak("Voice protocol re-activated!", allow_interrupt=False)
             continue
         elif msg_clean in ["bye", "exit", "quit", "goodbye", "bye bye", "see you"]:
             farewell = f"Aww... okay {nickname}. Come back soon! 🤍🫧"
             print(f"\nBubbles: {farewell}")
             if voice_enabled:
-                speak(f"Aww, okay {nickname}. Come back soon!")
+                speak(f"Aww, okay {nickname}. Come back soon!", allow_interrupt=False)
             break
 
         # Save user message to persistent conversation history
@@ -218,13 +222,23 @@ def start_bubbles():
             final_response = get_dynamic_fallback(user_message, nickname)
 
         print(f"\nBubbles: {final_response}")
-
-        # Speak Bubbles' response aloud with sanitized neural voice
-        if voice_enabled:
-            speak(final_response)
-
-        # Save Bubbles' response to persistent conversation history
         save_conversation_turn("Bubbles", final_response)
+
+        # Reset queued message for next turn
+        next_user_message = None
+
+        # Speak Bubbles' response aloud with real-time barge-in interruption detection
+        if voice_enabled:
+            speech_result = speak(final_response, allow_interrupt=True)
+            if isinstance(speech_result, dict) and speech_result.get("interrupted"):
+                interrupted_speech = speech_result.get("user_text")
+                print(f"\n⏸️ [Interrupted by {nickname}!]")
+                if interrupted_speech:
+                    print(f"{nickname} (voice): {interrupted_speech}")
+                    # Directly queue the interruption speech for immediate response in the next turn!
+                    next_user_message = interrupted_speech
+
+        user_message = next_user_message
 
 
 if __name__ == "__main__":

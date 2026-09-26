@@ -261,10 +261,10 @@ Remembering the user across sessions, tracking life events, and providing conver
 voice.py
 
 Purpose:
-Speech synthesis (TTS) and speech recognition (STT) engine for Bubbles.
+Speech synthesis (TTS), speech recognition (STT), and real-time barge-in interruption engine for Bubbles.
 
 Responsible for:
-Giving Bubbles a cute, warm voice (Baby Dory inspired via Edge-TTS neural voice `en-US-AnaNeural`), cleaning dialogue text (stripping emojis/roleplay asterisks for natural audio), listening to microphone input, and providing zero-network offline TTS fallback (pyttsx3).
+Giving Bubbles a cute, warm voice (Baby Dory inspired via Edge-TTS neural voice `en-US-AnaNeural`), cleaning dialogue text (stripping emojis/roleplay asterisks for natural audio), listening to microphone input, detecting real-time speech interruptions while talking, and providing zero-network offline TTS fallback (pyttsx3).
 
 ---
 
@@ -311,6 +311,8 @@ Giving Bubbles a cute, warm voice (Baby Dory inspired via Edge-TTS neural voice 
 ✅ Offline SAPI5 / pyttsx3 TTS Fallback
 
 ✅ Microphone Speech Recognition (STT via Google Web Speech)
+
+✅ Full-Duplex Speech & Real-Time Barge-In Interruption (ADR #009)
 
 ✅ Voice Input / Output Session Controls (`mute`, `unmute`, `bye`)
 
@@ -394,6 +396,7 @@ Version 0.4
 ✅ Voice Recognition (Microphone STT)
 ✅ Speech Output (Baby Dory Neural Voice + pyttsx3)
 ✅ Dialogue Sanitization Engine
+✅ Real-Time Voice Interruption (Barge-In)
 
 Version 0.5
 ⬜ Desktop Companion
@@ -541,3 +544,20 @@ Standardize Bubbles strictly on English conversation with the authentic Baby Dor
 2. **Baby Dory Neural Voice**: `en-US-AnaNeural` (pitch `+12Hz`, rate `+6%`) for cheerful, sweet, high-pitched speech synthesis.
 3. **Active Multi-Model Gemini Pipeline**: Configured `src/llm_provider.py` with `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-2.5-flash-lite`, `gemini-2.5-flash`, and `gemini-2.5-pro` to completely eliminate 404/429 errors and guarantee unique, intelligent, context-aware responses on every turn.
 4. **Robust Speech Recognition**: High sensitivity ambient calibration with `en-US` and `en-IN` recognition fallback for crystal-clear microphone transcription.
+
+---
+
+## Architecture Decision #009
+
+### Title
+Full-Duplex Speech & Real-Time Barge-In Interruption Pipeline
+
+### Decision
+Implement real-time voice interruption (barge-in / full-duplex speech) in `src/voice.py` and `src/main.py`:
+1. **Background Listening during Audio Playback**: While Bubbles is speaking her response over Pygame, a lightweight background listener actively listens to the microphone.
+2. **Instant Audio Stop**: The millisecond user speech is detected, `pygame.mixer.music.stop()` is triggered immediately, pausing/cutting off Bubbles mid-sentence.
+3. **Interruption Speech Transcription**: The user's interrupting speech is captured and transcribed via Google Speech API.
+4. **Immediate Response Routing**: The main loop in `src/main.py` catches the interruption, prints `⏸️ [Interrupted by {nickname}!]`, and immediately feeds the new user speech into `think()` to generate and speak an immediate response.
+
+### Reason
+Natural human conversation is dynamic and interactive. Users frequently interject, clarify, or change topics while the speaker is talking. Without barge-in support, users are forced to wait out long audio clips before speaking.

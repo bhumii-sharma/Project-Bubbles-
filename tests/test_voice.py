@@ -59,9 +59,12 @@ def test_tts_availability():
 
 
 def test_speak_clean_execution():
-    """Verify speak function runs with sanitized text without crashing."""
-    result = speak("Hello tiny human! Testing Baby Dory voice protocol.", block=False)
-    assert isinstance(result, bool)
+    """Verify speak function runs with sanitized text without crashing and returns result dictionary."""
+    result = speak("Hello tiny human! Testing Baby Dory voice protocol.", block=False, allow_interrupt=False)
+    assert isinstance(result, dict)
+    assert "success" in result
+    assert "interrupted" in result
+    assert "user_text" in result
 
 
 def test_default_baby_dory_voice_configured():
