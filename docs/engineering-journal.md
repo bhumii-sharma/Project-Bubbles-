@@ -57,7 +57,7 @@ Personality:
 
 
 Voice Inspiration:
-Baby Dory
+Baby Dory (English Neural Voice `en-US-AnaNeural`)
 
 Appearance Inspiration:
 Baymax + fluffy white momo
@@ -234,7 +234,7 @@ Purpose:
 Wrapper for Google Gemini API client.
 
 Responsible for:
-LLM connectivity, client lifecycle, and error handling.
+LLM connectivity, multi-model fallback, client lifecycle, and error handling.
 
 ---
 
@@ -264,7 +264,7 @@ Purpose:
 Speech synthesis (TTS) and speech recognition (STT) engine for Bubbles.
 
 Responsible for:
-Giving Bubbles a cute, warm voice (Baby Dory inspired via Edge-TTS neural voices), cleaning dialogue text (stripping emojis/roleplay asterisks for natural audio), listening to microphone input, and providing zero-network offline TTS fallback (pyttsx3).
+Giving Bubbles a cute, warm voice (Baby Dory inspired via Edge-TTS neural voice `en-US-AnaNeural`), cleaning dialogue text (stripping emojis/roleplay asterisks for natural audio), listening to microphone input, and providing zero-network offline TTS fallback (pyttsx3).
 
 ---
 
@@ -312,8 +312,7 @@ Giving Bubbles a cute, warm voice (Baby Dory inspired via Edge-TTS neural voices
 
 ✅ Microphone Speech Recognition (STT via Google Web Speech)
 
-✅ Voice Input / Output Session Controls (`mic`, `mute`, `unmute`)
-
+✅ Voice Input / Output Session Controls (`mute`, `unmute`, `bye`)
 
 ---
 
@@ -387,7 +386,7 @@ Version 0.2
 ✅ Context Awareness
 
 Version 0.3
-✅ AI Brain (Gemini 2.5 Flash / OpenAI GPT-4o)
+✅ AI Brain (Gemini Flash / OpenAI GPT-4o)
 ✅ LLM Integration
 ✅ Better Conversations
 
@@ -503,7 +502,7 @@ Unified Master Instructions & LLM-Native Persona Architecture
 Consolidate previously fragmented rule-based modules (`triggers.py`, `reactions.py`, `jokes.py`, `facts.py`, `moods.py`, `nicknames.py`, `personality.py`, `responses.py`) into a single, comprehensive Master Instructions file (`src/instructions.py`).
 
 ### Reason
-State-of-the-art LLMs (OpenAI GPT-4o) naturally understand sentiment, empathy, humor, teasing, context-aware nicknames, and conversational nuance without rigid regex keyword checks or canned static string lists. A single Master Instructions file produces far richer, more authentic, adaptive, and human-like emotional companionship while reducing codebase complexity by over 60%.
+State-of-the-art LLMs (OpenAI GPT-4o / Gemini Flash) naturally understand sentiment, empathy, humor, teasing, context-aware nicknames, and conversational nuance without rigid regex keyword checks or canned static string lists. A single Master Instructions file produces far richer, more authentic, adaptive, and human-like emotional companionship while reducing codebase complexity by over 60%.
 
 ### Trade-off
 Relies on prompt engineering clarity and model instruction following rather than deterministic if-else rules.
@@ -517,11 +516,11 @@ Hybrid Voice Engine & Dialogue Audio Pipeline
 
 ### Decision
 Implement a standalone Voice module (`src/voice.py`) delivering:
-1. **Primary Neural Speech Synthesis**: Edge-TTS neural voice (`en-US-AnaNeural`) with pitch tuning (`+8Hz`) and rate tuning (`+5%`) for a sweet, cheerful Baby Dory companion voice.
+1. **Primary Neural Speech Synthesis**: Edge-TTS neural voice (`en-US-AnaNeural`) with pitch tuning (`+12Hz`) and rate tuning (`+6%`) for a sweet, cheerful Baby Dory companion voice.
 2. **Offline Fallback Speech Synthesis**: Local OS SAPI5 / espeak via `pyttsx3` ensuring audio playback even without internet.
 3. **Dialogue Text Sanitization**: Dedicated regex pipeline `clean_text_for_speech()` that strips emojis (🫧, 🥟, ✨) and roleplay stage directions (`*gasps*`, `*hugs*`) so Bubbles speaks naturally without reading formatting symbols aloud.
 4. **Speech Recognition (STT)**: Microphone listening with ambient noise calibration via Google Web Speech.
-5. **Interactive Controls**: Non-blocking voice playback, seamless `mic` command, and in-session `mute`/`unmute` toggles in `src/main.py`.
+5. **Interactive Controls**: Non-blocking voice playback, seamless hands-free speech input, and in-session `mute`/`unmute` toggles in `src/main.py`.
 
 ### Reason
 Giving Bubbles a living voice is fundamental to her evolution from a text chatbot to a living desktop and physical companion. Clean separation of audio logic prevents coupling with conversational intelligence.
@@ -534,24 +533,11 @@ Microphone input requires local audio drivers/hardware; handled gracefully by fa
 ## Architecture Decision #008
 
 ### Title
-Multilingual Dynamic Language & Voice Routing Architecture (Hinglish, Hindi, English)
+Pure English Baby Dory Voice & Multi-Model Generative Intelligence
 
 ### Decision
-Enhance Bubbles with an intelligent, dynamic language mirroring and neural voice routing pipeline:
-1. **Dynamic Language Mirroring Prompting**: Explicitly instruct the AI Brain in `src/instructions.py` to detect and match the human's conversational language (Devanagari Hindi, Roman Hinglish, or English) in every turn.
-2. **Language-Specific Neural Voice Profiles**:
-   - **Hindi (Devanagari)**: `hi-IN-SwaraNeural` (pitch `+5Hz`, rate `+2%`)
-   - **Hinglish (Roman Hindi)**: `en-IN-NeerjaExpressiveNeural` (pitch `+6Hz`, rate `+4%`)
-   - **English**: `en-US-AnaNeural` (pitch `+8Hz`, rate `+5%`)
-3. **Multi-Accent Speech Recognition (STT)**: STT uses `en-IN` as primary recognition with fallback to `hi-IN` and `en-US`, accurately transcribing Hindi, Hinglish, and English audio.
-4. **Multilingual Offline Fallbacks**: `get_dynamic_fallback()` in `src/main.py` provides culturally warm Hindi/Hinglish responses when offline.
-
-### Reason
-Real human companionship in multilingual environments requires meeting the human in whatever language or blend they speak without forcing English or speaking Hindi with an unnatural Western accent.
-
-### Trade-off
-Requires maintaining a lightweight keyword-based script and language classifier in `src/voice.py`.
-
-
-
-
+Standardize Bubbles strictly on English conversation with the authentic Baby Dory neural voice profile:
+1. **English-Only Persona**: Configured `src/instructions.py` with strict English dialogue rules, Baby Dory curiosity, empathy-first comfort, and playful momo obsession.
+2. **Baby Dory Neural Voice**: `en-US-AnaNeural` (pitch `+12Hz`, rate `+6%`) for cheerful, sweet, high-pitched speech synthesis.
+3. **Active Multi-Model Gemini Pipeline**: Configured `src/llm_provider.py` with `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-2.5-flash-lite`, `gemini-2.5-flash`, and `gemini-2.5-pro` to completely eliminate 404/429 errors and guarantee unique, intelligent, context-aware responses on every turn.
+4. **Robust Speech Recognition**: High sensitivity ambient calibration with `en-US` and `en-IN` recognition fallback for crystal-clear microphone transcription.

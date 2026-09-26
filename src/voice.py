@@ -20,7 +20,7 @@ if sys.platform == "win32":
 # Ensure src directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Optional Edge-TTS for ultra-natural, cute neural voice (Baby Dory inspired)
+# Optional Edge-TTS for ultra-natural, cute neural voice (Baby Dory English)
 try:
     import edge_tts
     _EDGE_TTS_AVAILABLE = True
@@ -53,66 +53,11 @@ except ImportError:
     sr = None
 
 
-# Multilingual Voice Profiles (Disney's Finding Dory Hindi dub inspired - Young Dory / Demira Amar Babaria style)
-VOICE_MAP = {
-    "hindi": {
-        "voice": "hi-IN-SwaraNeural",             # Authentic Finding Dory Hindi Dub child voice
-        "pitch": "+28Hz",
-        "rate": "+8%",
-    },
-    "hinglish": {
-        "voice": "hi-IN-SwaraNeural",             # High-pitch Baby Dory for Hinglish & Hindi
-        "pitch": "+26Hz",
-        "rate": "+8%",
-    },
-    "english": {
-        "voice": "en-US-AnaNeural",                # Cheerful Baby Dory English voice
-        "pitch": "+12Hz",
-        "rate": "+6%",
-    },
-}
-
-DEFAULT_VOICE = os.getenv("BUBBLES_VOICE", "auto")
-DEFAULT_PITCH = os.getenv("BUBBLES_PITCH", None)
-DEFAULT_RATE = os.getenv("BUBBLES_RATE", None)
-DEFAULT_LANGUAGE = os.getenv("BUBBLES_LANGUAGE", "en-IN")
-
-
-def detect_language(text: str) -> str:
-    """
-    Detects whether dialogue is Devanagari Hindi, Roman Hinglish, or English.
-    """
-    if not text:
-        return "english"
-
-    # 1. Hindi Devanagari Unicode Block (\u0900-\u097F)
-    if re.search(r"[\u0900-\u097F]", text):
-        return "hindi"
-
-    # 2. Hinglish marker words
-    hinglish_keywords = {
-        "kya", "hai", "hain", "ho", "nahi", "nhi", "haan", "haa", "mujhe", "tum", "tumhara",
-        "aap", "aapka", "kaise", "kaisi", "kaisa", "aaj", "bhi", "karo", "kuch", "bohot",
-        "bahut", "khana", "yaar", "kaun", "kyun", "kyu", "achha", "achhi", "theek", "bolo",
-        "batao", "suno", "meri", "mera", "mere", "hum", "kar", "rahe", "rahi", "gaya",
-        "gayi", "momo", "momos", "thak", "accha", "thik", "matlab", "karein", "dekho",
-        "dekh", "chalo", "chal", "paas", "sath", "saath", "baat", "krenge", "karenge",
-        "khaye", "khaya", "khao", "pyar", "pyaar", "bataiye", "hona", "hoga", "hogi"
-    }
-    words = [w.lower() for w in re.findall(r"\b[a-zA-Z]+\b", text)]
-    if any(w in hinglish_keywords for w in words):
-        return "hinglish"
-
-    return "english"
-
-
-def get_voice_for_text(text: str) -> tuple[str, str, str]:
-    """
-    Automatically returns (voice_name, pitch, rate) matching the language of the dialogue.
-    """
-    lang = detect_language(text)
-    cfg = VOICE_MAP.get(lang, VOICE_MAP["english"])
-    return cfg["voice"], cfg["pitch"], cfg["rate"]
+# Baby Dory Signature Voice Profile (Sweet, cheerful, high-pitch English voice)
+DEFAULT_VOICE = os.getenv("BUBBLES_VOICE", "en-US-AnaNeural")
+DEFAULT_PITCH = os.getenv("BUBBLES_PITCH", "+12Hz")
+DEFAULT_RATE = os.getenv("BUBBLES_RATE", "+6%")
+DEFAULT_LANGUAGE = os.getenv("BUBBLES_LANGUAGE", "en-US")
 
 # Pygame mixer initialization lock
 _mixer_lock = threading.Lock()
@@ -132,7 +77,7 @@ def _get_recognizer():
     with _sr_lock:
         if _recognizer is None:
             _recognizer = sr.Recognizer()
-            # High sensitivity settings so soft/normal voices are clearly detected
+            # High sensitivity settings so normal/soft voices are clearly detected
             _recognizer.energy_threshold = 200  # Sensitive base threshold
             _recognizer.dynamic_energy_threshold = True
             _recognizer.dynamic_energy_adjustment_damping = 0.15
@@ -286,29 +231,26 @@ def _run_coroutine(coro):
 
 def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, block: bool = True) -> bool:
     """
-    Speaks the given text using high-quality neural TTS (Edge-TTS)
+    Speaks the given text using high-quality Baby Dory neural TTS (en-US-AnaNeural)
     with seamless offline fallback (pyttsx3).
-    Automatically detects language (Hindi, Hinglish, English) and routes to the matching native voice.
     Automatically sanitizes text (removes emojis and roleplay asterisks).
     """
     cleaned_text = clean_text_for_speech(text)
     if not cleaned_text:
         return False
 
-    # Auto-detect language voice profile if not explicitly specified
-    auto_voice, auto_pitch, auto_rate = get_voice_for_text(cleaned_text)
-    selected_voice = voice if (voice and voice != "auto") else auto_voice
-    selected_pitch = pitch if pitch is not None else auto_pitch
-    selected_rate = rate if rate is not None else auto_rate
+    selected_voice = voice if voice else DEFAULT_VOICE
+    selected_pitch = pitch if pitch is not None else DEFAULT_PITCH
+    selected_rate = rate if rate is not None else DEFAULT_RATE
 
-    # 1. Primary: Edge-TTS Neural Voice
+    # 1. Primary: Edge-TTS Neural Voice (Baby Dory English)
     if _EDGE_TTS_AVAILABLE and _PYGAME_AVAILABLE:
         temp_file = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
                 temp_file = f.name
 
-            # Generate audio with matched voice and pitch
+            # Generate audio with Baby Dory voice and pitch
             _run_coroutine(_generate_edge_tts_audio(
                 cleaned_text,
                 temp_file,
@@ -337,7 +279,7 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
 def listen(timeout: int = 5, phrase_time_limit: int = 8, language: str = DEFAULT_LANGUAGE) -> str | None:
     """
     Captures audio from the microphone with high sensitivity and converts speech to text.
-    Uses fast pause detection and Indian English / Hinglish accent recognition.
+    Uses fast pause detection and English speech recognition (en-US with en-IN accent fallback).
     Returns the recognized string, or None if no speech was detected/unintelligible.
     """
     global _calibrated
@@ -358,14 +300,14 @@ def listen(timeout: int = 5, phrase_time_limit: int = 8, language: str = DEFAULT
             audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
 
         print("🔄 Processing speech...")
-        # 1. Primary recognition (e.g. en-IN / Indian English & Hinglish)
+        # 1. Primary recognition (e.g. en-US / English)
         try:
             transcript = recognizer.recognize_google(audio, language=language)
             if transcript:
                 return transcript.strip()
         except sr.UnknownValueError:
-            # 2. Secondary fallback recognition (en-US or hi-IN)
-            alt_lang = "en-US" if language != "en-US" else "hi-IN"
+            # 2. Secondary fallback recognition (en-IN for Indian English accent)
+            alt_lang = "en-IN" if language != "en-IN" else "en-US"
             try:
                 transcript = recognizer.recognize_google(audio, language=alt_lang)
                 if transcript:
@@ -381,7 +323,7 @@ def listen(timeout: int = 5, phrase_time_limit: int = 8, language: str = DEFAULT
     except sr.RequestError as e:
         print(f"⚠️ Speech Recognition network error: {e}")
         return None
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -403,19 +345,19 @@ def is_tts_available() -> bool:
 
 if __name__ == "__main__":
     print("\n" + "=" * 50)
-    print("🫧 Testing Bubbles Voice Engine")
+    print("🫧 Testing Bubbles Voice Engine (English Baby Dory)")
     print("=" * 50)
     test_phrase = "🫧 Hi Little Star! 🥟 I'm Bubbles, your favorite momo companion! ✨🤍"
     print(f"\nOriginal text: {test_phrase}")
     sanitized = clean_text_for_speech(test_phrase)
     print(f"Sanitized text: {sanitized}")
 
-    print("\n🔊 Speaking test phrase...")
+    print("\n🔊 Speaking test phrase with Baby Dory voice...")
     success = speak(test_phrase, block=True)
     print(f"Playback status: {'✅ SUCCESS' if success else '❌ FAILED'}")
 
     if is_voice_input_available():
-        print("\n🎤 Testing microphone... (Say something within 5s)")
+        print("\n🎤 Testing microphone... (Say something in English within 5s)")
         result = listen(timeout=5, phrase_time_limit=6)
         print(f"Recognized speech: {result}")
     else:

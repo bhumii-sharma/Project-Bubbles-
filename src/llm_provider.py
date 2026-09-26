@@ -34,8 +34,11 @@ _gemini_client = None
 _openai_client = None
 
 GEMINI_MODELS = [
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
-    "gemini-1.5-flash"
+    "gemini-2.5-pro",
 ]
 
 OPENAI_MODELS = [
@@ -132,8 +135,8 @@ def generate_response(prompt, system_prompt=None, temperature=0.7):
                     contents=full_content,
                 )
                 text = _extract_gemini_text(res)
-                if text:
-                    return text
+                if text and text.strip():
+                    return text.strip()
             except Exception:
                 continue
 
@@ -154,7 +157,7 @@ def generate_response(prompt, system_prompt=None, temperature=0.7):
                     timeout=8.0,
                 )
                 if res and res.choices and res.choices[0].message.content:
-                    return res.choices[0].message.content
+                    return res.choices[0].message.content.strip()
             except (RateLimitError, AuthenticationError):
                 break
             except Exception:

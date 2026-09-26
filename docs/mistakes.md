@@ -62,6 +62,11 @@ A running engineering log of mistakes made, why they happened, and how they were
 ### Mistake #009: Backslash Escape Inside F-String Expression in Python < 3.12
 - **Symptom**: `SyntaxError: f-string expression part cannot include a backslash` when launching `main.py` on Python 3.10.
 - **Root Cause**: In Python versions earlier than 3.12, backslashes (`\"`) are strictly forbidden inside f-string interpolation braces `{...}`.
-- **Fix**: Precomputed conditional status string variables (`brain_status`, `tts_status`, `mic_status`) before f-string printing.
+- **Fix**: Precomputed conditional status string variables before f-string printing.
 
+---
 
+### Mistake #010: Retired Model Names in Gemini Fallback Pipeline Causing Canned Fallbacks
+- **Symptom**: Repetitive canned fallback replies when user talked to Bubbles in terminal.
+- **Root Cause**: `GEMINI_MODELS` list contained `gemini-1.5-flash` which was retired/not found (404) and `gemini-2.5-flash` which reached rate limit quotas (429). When both failed, `generate_response()` returned `None`, triggering repetitive static offline fallback lines in `main.py`.
+- **Fix**: Updated `GEMINI_MODELS` to use current active high-throughput models (`gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-2.5-flash-lite`, `gemini-2.5-flash`, `gemini-2.5-pro`). Verified dynamic sub-second generative intelligence on every turn.

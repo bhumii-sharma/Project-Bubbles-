@@ -10,6 +10,8 @@ from voice import (
     is_tts_available,
     speak,
     DEFAULT_VOICE,
+    DEFAULT_PITCH,
+    DEFAULT_RATE,
 )
 
 
@@ -58,39 +60,12 @@ def test_tts_availability():
 
 def test_speak_clean_execution():
     """Verify speak function runs with sanitized text without crashing."""
-    # Simple short sentence
-    result = speak("Hello tiny human! Testing voice protocol.", block=False)
-    # Result should be a boolean (True on success, False if no audio device / offline)
+    result = speak("Hello tiny human! Testing Baby Dory voice protocol.", block=False)
     assert isinstance(result, bool)
 
 
-def test_default_voice_configured():
-    """Verify default voice is configured."""
-    assert DEFAULT_VOICE in ["auto", "en-US-AnaNeural"]
-
-
-def test_detect_language_hindi():
-    """Verify Hindi Devanagari script is detected accurately."""
-    from voice import detect_language, get_voice_for_text
-    lang = detect_language("नमस्ते, आप कैसी हो Bubbles?")
-    assert lang == "hindi"
-    voice, _, _ = get_voice_for_text("नमस्ते")
-    assert "hi-IN" in voice or "Swara" in voice
-
-
-def test_detect_language_hinglish():
-    """Verify Roman script Hinglish words are detected accurately."""
-    from voice import detect_language, get_voice_for_text
-    lang = detect_language("kaise ho aap? aaj bohot thak gayi hoon, momo khana hai")
-    assert lang == "hinglish"
-    voice, _, _ = get_voice_for_text("kaise ho aap")
-    assert "hi-IN" in voice or "Swara" in voice
-
-
-def test_detect_language_english():
-    """Verify English text is routed to standard English voice."""
-    from voice import detect_language, get_voice_for_text
-    lang = detect_language("Hello Little Star, I hope you are having an amazing day!")
-    assert lang == "english"
-    voice, _, _ = get_voice_for_text("Hello Little Star")
-    assert "en-US" in voice or "Ana" in voice
+def test_default_baby_dory_voice_configured():
+    """Verify default Baby Dory neural voice parameters."""
+    assert DEFAULT_VOICE == "en-US-AnaNeural"
+    assert DEFAULT_PITCH == "+12Hz"
+    assert DEFAULT_RATE == "+6%"
