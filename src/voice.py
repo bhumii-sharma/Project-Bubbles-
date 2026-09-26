@@ -53,11 +53,66 @@ except ImportError:
     sr = None
 
 
-# Default Voice Settings (Baby Dory inspired: cute, warm, expressive child/female voice)
-DEFAULT_VOICE = os.getenv("BUBBLES_VOICE", "en-US-AnaNeural")
-DEFAULT_PITCH = os.getenv("BUBBLES_PITCH", "+8Hz")
-DEFAULT_RATE = os.getenv("BUBBLES_RATE", "+5%")
-DEFAULT_LANGUAGE = os.getenv("BUBBLES_LANGUAGE", "en-IN")  # High accuracy for Indian accents & Hinglish
+# Multilingual Voice Profiles (Neural Edge-TTS)
+VOICE_MAP = {
+    "hindi": {
+        "voice": "hi-IN-SwaraNeural",           # Sweet, expressive native Hindi voice
+        "pitch": "+5Hz",
+        "rate": "+2%",
+    },
+    "hinglish": {
+        "voice": "en-IN-NeerjaExpressiveNeural",  # Natural Indian accent for Roman Hinglish
+        "pitch": "+6Hz",
+        "rate": "+4%",
+    },
+    "english": {
+        "voice": "en-US-AnaNeural",              # Cute, warm Baby Dory child voice
+        "pitch": "+8Hz",
+        "rate": "+5%",
+    },
+}
+
+DEFAULT_VOICE = os.getenv("BUBBLES_VOICE", "auto")
+DEFAULT_PITCH = os.getenv("BUBBLES_PITCH", None)
+DEFAULT_RATE = os.getenv("BUBBLES_RATE", None)
+DEFAULT_LANGUAGE = os.getenv("BUBBLES_LANGUAGE", "en-IN")
+
+
+def detect_language(text: str) -> str:
+    """
+    Detects whether dialogue is Devanagari Hindi, Roman Hinglish, or English.
+    """
+    if not text:
+        return "english"
+
+    # 1. Hindi Devanagari Unicode Block (\u0900-\u097F)
+    if re.search(r"[\u0900-\u097F]", text):
+        return "hindi"
+
+    # 2. Hinglish marker words
+    hinglish_keywords = {
+        "kya", "hai", "hain", "ho", "nahi", "nhi", "haan", "haa", "mujhe", "tum", "tumhara",
+        "aap", "aapka", "kaise", "kaisi", "kaisa", "aaj", "bhi", "karo", "kuch", "bohot",
+        "bahut", "khana", "yaar", "kaun", "kyun", "kyu", "achha", "achhi", "theek", "bolo",
+        "batao", "suno", "meri", "mera", "mere", "hum", "kar", "rahe", "rahi", "gaya",
+        "gayi", "momo", "momos", "thak", "accha", "thik", "matlab", "karein", "dekho",
+        "dekh", "chalo", "chal", "paas", "sath", "saath", "baat", "krenge", "karenge",
+        "khaye", "khaya", "khao", "pyar", "pyaar", "bataiye", "hona", "hoga", "hogi"
+    }
+    words = [w.lower() for w in re.findall(r"\b[a-zA-Z]+\b", text)]
+    if any(w in hinglish_keywords for w in words):
+        return "hinglish"
+
+    return "english"
+
+
+def get_voice_for_text(text: str) -> tuple[str, str, str]:
+    """
+    Automatically returns (voice_name, pitch, rate) matching the language of the dialogue.
+    """
+    lang = detect_language(text)
+    cfg = VOICE_MAP.get(lang, VOICE_MAP["english"])
+    return cfg["voice"], cfg["pitch"], cfg["rate"]
 
 # Pygame mixer initialization lock
 _mixer_lock = threading.Lock()
@@ -229,25 +284,38 @@ def _run_coroutine(coro):
         return asyncio.run(coro)
 
 
-def speak(text: str, voice: str = DEFAULT_VOICE, block: bool = True) -> bool:
+def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, block: bool = True) -> bool:
     """
     Speaks the given text using high-quality neural TTS (Edge-TTS)
     with seamless offline fallback (pyttsx3).
+    Automatically detects language (Hindi, Hinglish, English) and routes to the matching native voice.
     Automatically sanitizes text (removes emojis and roleplay asterisks).
     """
     cleaned_text = clean_text_for_speech(text)
     if not cleaned_text:
         return False
 
-    # 1. Primary: Edge-TTS Neural Voice (Baby Dory inspired)
+    # Auto-detect language voice profile if not explicitly specified
+    auto_voice, auto_pitch, auto_rate = get_voice_for_text(cleaned_text)
+    selected_voice = voice if (voice and voice != "auto") else auto_voice
+    selected_pitch = pitch if pitch is not None else auto_pitch
+    selected_rate = rate if rate is not None else auto_rate
+
+    # 1. Primary: Edge-TTS Neural Voice
     if _EDGE_TTS_AVAILABLE and _PYGAME_AVAILABLE:
         temp_file = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
                 temp_file = f.name
 
-            # Generate audio
-            _run_coroutine(_generate_edge_tts_audio(cleaned_text, temp_file, voice=voice))
+            # Generate audio with matched voice and pitch
+            _run_coroutine(_generate_edge_tts_audio(
+                cleaned_text,
+                temp_file,
+                voice=selected_voice,
+                pitch=selected_pitch,
+                rate=selected_rate,
+            ))
 
             # Play audio
             success = _play_audio_file(temp_file, block=block)

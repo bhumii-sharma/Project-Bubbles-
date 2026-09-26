@@ -529,6 +529,29 @@ Giving Bubbles a living voice is fundamental to her evolution from a text chatbo
 ### Trade-off
 Microphone input requires local audio drivers/hardware; handled gracefully by falling back to text typing when microphone is absent.
 
+---
+
+## Architecture Decision #008
+
+### Title
+Multilingual Dynamic Language & Voice Routing Architecture (Hinglish, Hindi, English)
+
+### Decision
+Enhance Bubbles with an intelligent, dynamic language mirroring and neural voice routing pipeline:
+1. **Dynamic Language Mirroring Prompting**: Explicitly instruct the AI Brain in `src/instructions.py` to detect and match the human's conversational language (Devanagari Hindi, Roman Hinglish, or English) in every turn.
+2. **Language-Specific Neural Voice Profiles**:
+   - **Hindi (Devanagari)**: `hi-IN-SwaraNeural` (pitch `+5Hz`, rate `+2%`)
+   - **Hinglish (Roman Hindi)**: `en-IN-NeerjaExpressiveNeural` (pitch `+6Hz`, rate `+4%`)
+   - **English**: `en-US-AnaNeural` (pitch `+8Hz`, rate `+5%`)
+3. **Multi-Accent Speech Recognition (STT)**: STT uses `en-IN` as primary recognition with fallback to `hi-IN` and `en-US`, accurately transcribing Hindi, Hinglish, and English audio.
+4. **Multilingual Offline Fallbacks**: `get_dynamic_fallback()` in `src/main.py` provides culturally warm Hindi/Hinglish responses when offline.
+
+### Reason
+Real human companionship in multilingual environments requires meeting the human in whatever language or blend they speak without forcing English or speaking Hindi with an unnatural Western accent.
+
+### Trade-off
+Requires maintaining a lightweight keyword-based script and language classifier in `src/voice.py`.
+
 
 
 

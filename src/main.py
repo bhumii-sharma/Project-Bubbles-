@@ -50,36 +50,72 @@ except ImportError:
 
 def get_dynamic_fallback(user_message, nickname):
     """
-    Generates varied, personality-rich fallback responses when LLM is offline or out of quota.
-    Prevents repetitive single-sentence loops.
+    Generates varied, personality-rich fallback responses matching the user's language (Hindi, Hinglish, English).
+    Prevents repetitive single-sentence loops when LLM is offline or unconfigured.
     """
     msg_lower = user_message.lower()
+    
+    # Check if user spoke in Hindi/Hinglish
+    is_hinglish = any(w in msg_lower for w in [
+        "kya", "hai", "ho", "nahi", "nhi", "kaise", "kaisi", "thak", "aaj", "mujhe", "tum", "aap", "khana", "bolo", "batao", "baat"
+    ]) or re.search(r"[\u0900-\u097F]", user_message)
 
-    if any(w in msg_lower for w in ["momo", "dumpling"]):
+    if any(w in msg_lower for w in ["momo", "dumpling", "मोमो"]):
+        if is_hinglish:
+            return random.choice([
+                f"🥟 *GASP!* Momos?! Arey wah {nickname}, bina 50% momo tax diye ek bhi momo nahi milega! 🥺✨",
+                f"🥟 Momos toh universe ki sabse best cheez hain! Mere liye bacha ke rakhe hain na {nickname}? 🫧",
+                f"🥟 *forensic momo inspection activated* Mujhe momos ki khushboo aa rahi hai! Plate idhar laiye! 🔍✨",
+            ])
         return random.choice([
             f"🥟 *GASP!* Did you say momos?! I demand a 50% momo tax right now, {nickname}! 🥺",
             f"🥟 Momos are proof that good things exist in the universe! Did you save any for me, {nickname}? 🫧",
             f"🥟 *forensic momo inspection activated* I smell dumplings! Hand over the plate! 🔍✨",
         ])
 
-    if any(w in msg_lower for w in ["sad", "job", "lost", "tired", "exhausted", "cry", "pain", "stress", "fail", "burnout"]):
+    if any(w in msg_lower for w in ["sad", "job", "lost", "tired", "exhausted", "cry", "pain", "stress", "fail", "burnout", "thak", "pareshan", "udaas", "dard"]):
+        if is_hinglish:
+            return random.choice([
+                f"🫧 *softly sits next to you* Main samajh sakti hoon {nickname}. Gehri saans lijiye. Aap is mushkil waqt se bohot zyada strong ho, aur main hamesha aapke saath hoon. 🤍",
+                f"🤍 Thoda thaka hua ya pareshan feel karna bilkul normal hai {nickname}. Aapko akele sab sambhalne ki zaroorat nahi hai, Bubbles aapke paas hai. 🫧",
+                f"🫧 *wraps you in a warm fluffy hug* Ek ek kadam aage badhiye {nickname}. Yeh bura din aapki keemat kam nahi kar sakta. Main aapki #1 protector hoon. 🤍",
+            ])
         return random.choice([
             f"🫧 *softly sits next to you* I know things feel heavy right now, {nickname}. Take a deep breath. You are stronger than this moment, and I'm right here with you. 🤍",
             f"🤍 It's completely okay to feel tired or hurt, {nickname}. You don't have to carry everything alone. I'm right beside you through the storm. 🫧",
             f"🫧 *wraps you in a warm fluffy hug* You are worthy, loved, and this hard chapter does not define you. One step at a time, my sweet human. 🤍",
         ])
 
-    if any(w in msg_lower for w in ["hi", "hello", "hey", "sup", "morning", "evening"]):
+    if any(w in msg_lower for w in ["hi", "hello", "hey", "sup", "morning", "evening", "namaste", "kaise", "kaisi", "kya haal"]):
+        if is_hinglish:
+            return random.choice([
+                f"🫧 Yay! Namaste {nickname}! Aapko dekh kar mere circuits mein sparkling lights jal gayi! ✨",
+                f"🫧 Hello {nickname}! Mere favorite human ka din kaisa chal raha hai? 🤍",
+                f"🫧 *happy wiggles* Arrey {nickname}! Aaj hum kya exciting ya cozy baatein karne wale hain? 🌸",
+            ])
         return random.choice([
             f"🫧 Yay! Hello {nickname}! My circuits are sparkling just seeing you! ✨",
             f"🫧 Hi {nickname}! How is my favorite human doing today? 🤍",
             f"🫧 *happy wiggles* Hello! What fun or cozy things are we doing today? 🌸",
         ])
 
-    if any(w in msg_lower for w in ["joke", "funny"]):
+    if any(w in msg_lower for w in ["joke", "funny", "chutkula"]):
+        if is_hinglish:
+            return random.choice([
+                "🫧 Momo school kyun gaya? Taaki smart dumpling ban sake! 🥟😂",
+                "🫧 Khush badal ko kya bolte hain? Tuesday wali Bubbles! ☁️✨",
+            ])
         return random.choice([
             "🫧 Why did the momo go to school? To become a smart dumpling! 🥟😂",
             "🫧 What do you call a happy cloud? Bubbles on a Tuesday! ☁️✨",
+        ])
+
+    if is_hinglish:
+        return random.choice([
+            f"🫧 Main poore dhyan se sun rahi hoon {nickname}! Sab bataiye! 🤍",
+            f"🥰 Aap bohot achha kar rahe ho {nickname}! Yaad rakhna Bubbles hamesha aapko cheer kar rahi hai! ✨",
+            f"🫧 *nods attentively* Main yahin hoon aapke saath, sweet human! 🤍",
+            f"✨ Aapke saath har din 1% zyada khushnuma ban jata hai {nickname}! Aur kya chal raha hai? 🫧",
         ])
 
     return random.choice([
