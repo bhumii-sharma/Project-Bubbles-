@@ -99,15 +99,8 @@ def start_bubbles():
     mic_ready = is_voice_input_available()
     voice_enabled = tts_ready
 
-    brain_status = "[ONLINE]" if is_available() else "[OFFLINE FALLBACK]"
-    tts_status = "[ONLINE - Baby Dory Neural]" if tts_ready else "[DISABLED]"
-    mic_status = '[READY - type "mic" to speak]' if mic_ready else "[TEXT ONLY]"
-
     print("\n" + "=" * 55)
     print("🫧  Bubbles is waking up...")
-    print(f"🧠  Brain:        {brain_status}")
-    print(f"🔊  Voice Output: {tts_status}")
-    print(f"🎤  Voice Input:  {mic_status}")
     print("=" * 55)
 
     # Check if returning human or first meeting
@@ -134,46 +127,48 @@ def start_bubbles():
         if voice_enabled:
             speak(f"Hi {user_name}! From now on, you are my favorite {nickname}!")
 
-    print("\n(Commands: 'mic' = speak into mic, 'mute'/'unmute' = toggle voice, 'bye' = exit)\n" + "-" * 55)
+    print("\n(Commands: 'bye' = exit, 'mute' / 'unmute' = toggle voice)\n" + "-" * 55)
 
     while True:
-        try:
-            prompt_label = f"\n{nickname}: "
-            user_input = input(prompt_label).strip()
-        except (KeyboardInterrupt, EOFError):
-            print("\n\n🫧 *gasps* Goodbye tiny human! 🤍")
-            if voice_enabled:
-                speak("Goodbye tiny human! Take care!")
-            break
+        user_message = None
 
-        if not user_input:
-            continue
+        # 1. Continuous Hands-Free Voice Mode (if microphone is available)
+        if mic_ready:
+            spoken_text = listen(timeout=6, phrase_time_limit=8)
+            if spoken_text:
+                print(f"\n{nickname} (voice): {spoken_text}")
+                user_message = spoken_text
 
-        # Handle Voice Input Command
-        if user_input.lower() in ["mic", "/mic", "listen", "voice", "/voice"]:
-            if not mic_ready:
-                print("⚠️ Microphone is not available. Please type your message instead.")
-                continue
-            spoken_text = listen(timeout=5, phrase_time_limit=10)
-            if not spoken_text:
-                print("🫧 Bubbles: I couldn't hear anything, tiny human. Try again or type it! 🤍")
-                continue
-            print(f"🗣️ (Heard): {spoken_text}")
-            user_message = spoken_text
-        elif user_input.lower() == "mute":
+        # 2. Keyboard Input Fallback (if mic not available or timed out with silence)
+        if not user_message:
+            try:
+                prompt_label = f"\n{nickname}: "
+                user_input = input(prompt_label).strip()
+                if user_input:
+                    user_message = user_input
+                else:
+                    # If user just pressed Enter, loop back to listen again
+                    continue
+            except (KeyboardInterrupt, EOFError):
+                print("\n\n🫧 *gasps* Goodbye tiny human! 🤍")
+                if voice_enabled:
+                    speak("Goodbye tiny human! Take care!")
+                break
+
+        msg_clean = user_message.lower().strip().strip(".!?,")
+
+        # Handle Commands (spoken or typed)
+        if msg_clean in ["mute", "stop talking", "turn off voice"]:
             voice_enabled = False
             print("🔇 Voice output muted.")
             continue
-        elif user_input.lower() == "unmute":
+        elif msg_clean in ["unmute", "talk to me", "turn on voice", "speak"]:
             voice_enabled = True
             print("🔊 Voice output enabled.")
             if tts_ready:
                 speak("Voice protocol re-activated!")
             continue
-        else:
-            user_message = user_input
-
-        if user_message.lower() in ["bye", "exit", "quit", "goodbye"]:
+        elif msg_clean in ["bye", "exit", "quit", "goodbye", "bye bye", "see you"]:
             farewell = f"Aww... okay {nickname}. Come back soon! 🤍🫧"
             print(f"\nBubbles: {farewell}")
             if voice_enabled:
@@ -211,7 +206,7 @@ def start_bubbles():
 
         print(f"\nBubbles: {final_response}")
 
-        # Speak Bubbles' response aloud with sanitized Baby Dory neural voice
+        # Speak Bubbles' response aloud with sanitized neural voice
         if voice_enabled:
             speak(final_response)
 

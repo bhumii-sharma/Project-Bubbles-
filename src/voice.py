@@ -57,10 +57,52 @@ except ImportError:
 DEFAULT_VOICE = os.getenv("BUBBLES_VOICE", "en-US-AnaNeural")
 DEFAULT_PITCH = os.getenv("BUBBLES_PITCH", "+8Hz")
 DEFAULT_RATE = os.getenv("BUBBLES_RATE", "+5%")
+DEFAULT_LANGUAGE = os.getenv("BUBBLES_LANGUAGE", "en-IN")  # High accuracy for Indian accents & Hinglish
 
 # Pygame mixer initialization lock
 _mixer_lock = threading.Lock()
 _mixer_initialized = False
+
+# Speech recognition instance & calibration lock
+_sr_lock = threading.Lock()
+_recognizer = None
+_calibrated = False
+
+
+def _get_recognizer():
+    """Lazily initializes and tunes SpeechRecognizer for high sensitivity and low latency."""
+    global _recognizer
+    if not _SR_AVAILABLE or sr is None:
+        return None
+    with _sr_lock:
+        if _recognizer is None:
+            _recognizer = sr.Recognizer()
+            # High sensitivity settings so soft/normal voices are clearly detected
+            _recognizer.energy_threshold = 200  # Sensitive base threshold
+            _recognizer.dynamic_energy_threshold = True
+            _recognizer.dynamic_energy_adjustment_damping = 0.15
+            _recognizer.dynamic_energy_ratio = 1.3
+            _recognizer.pause_threshold = 0.65  # Quick turnaround after speech ends
+            _recognizer.phrase_threshold = 0.2
+            _recognizer.non_speaking_duration = 0.3
+        return _recognizer
+
+
+def calibrate_microphone(duration: float = 0.5) -> bool:
+    """Calibrates microphone ambient noise once at startup."""
+    global _calibrated
+    if not _SR_AVAILABLE or sr is None:
+        return False
+    rec = _get_recognizer()
+    if not rec:
+        return False
+    try:
+        with sr.Microphone() as source:
+            rec.adjust_for_ambient_noise(source, duration=duration)
+            _calibrated = True
+            return True
+    except Exception:
+        return False
 
 
 def _init_mixer():
@@ -224,39 +266,54 @@ def speak(text: str, voice: str = DEFAULT_VOICE, block: bool = True) -> bool:
     return _speak_offline_fallback(cleaned_text)
 
 
-def listen(timeout: int = 5, phrase_time_limit: int = 10, language: str = "en-US") -> str | None:
+def listen(timeout: int = 5, phrase_time_limit: int = 8, language: str = DEFAULT_LANGUAGE) -> str | None:
     """
-    Captures audio from the microphone and converts speech to text.
+    Captures audio from the microphone with high sensitivity and converts speech to text.
+    Uses fast pause detection and Indian English / Hinglish accent recognition.
     Returns the recognized string, or None if no speech was detected/unintelligible.
     """
+    global _calibrated
     if not _SR_AVAILABLE or sr is None:
-        print("\n⚠️ SpeechRecognition is not available.")
         return None
 
-    recognizer = sr.Recognizer()
-    recognizer.energy_threshold = 300
-    recognizer.dynamic_energy_threshold = True
+    recognizer = _get_recognizer()
+    if not recognizer:
+        return None
 
     try:
         with sr.Microphone() as source:
-            print("\n🎤 Listening... (speak now)")
-            recognizer.adjust_for_ambient_noise(source, duration=0.6)
+            if not _calibrated:
+                recognizer.adjust_for_ambient_noise(source, duration=0.4)
+                _calibrated = True
+
+            print("🎤 (Listening... speak into mic)")
             audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
 
         print("🔄 Processing speech...")
-        transcript = recognizer.recognize_google(audio, language=language)
-        return transcript.strip()
+        # 1. Primary recognition (e.g. en-IN / Indian English & Hinglish)
+        try:
+            transcript = recognizer.recognize_google(audio, language=language)
+            if transcript:
+                return transcript.strip()
+        except sr.UnknownValueError:
+            # 2. Secondary fallback recognition (en-US or hi-IN)
+            alt_lang = "en-US" if language != "en-US" else "hi-IN"
+            try:
+                transcript = recognizer.recognize_google(audio, language=alt_lang)
+                if transcript:
+                    return transcript.strip()
+            except Exception:
+                pass
+
+        return None
     except sr.WaitTimeoutError:
-        print("⏳ No speech detected within timeout.")
         return None
     except sr.UnknownValueError:
-        print("❓ Could not understand audio.")
         return None
     except sr.RequestError as e:
-        print(f"⚠️ Speech Recognition service error: {e}")
+        print(f"⚠️ Speech Recognition network error: {e}")
         return None
     except Exception as e:
-        print(f"⚠️ Microphone error: {e}")
         return None
 
 
