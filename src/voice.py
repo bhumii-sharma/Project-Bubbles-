@@ -5,6 +5,10 @@ import time
 import asyncio
 import tempfile
 import threading
+import concurrent.futures
+
+# Suppress pygame welcome banner in console
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 # Configure UTF-8 encoding for Windows terminal output
 if sys.platform == "win32":
@@ -169,6 +173,20 @@ def _speak_offline_fallback(text: str):
         return False
 
 
+def _run_coroutine(coro):
+    """Safely executes an async coroutine across sync contexts or existing event loops."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(asyncio.run, coro).result()
+    else:
+        return asyncio.run(coro)
+
+
 def speak(text: str, voice: str = DEFAULT_VOICE, block: bool = True) -> bool:
     """
     Speaks the given text using high-quality neural TTS (Edge-TTS)
@@ -187,7 +205,7 @@ def speak(text: str, voice: str = DEFAULT_VOICE, block: bool = True) -> bool:
                 temp_file = f.name
 
             # Generate audio
-            asyncio.run(_generate_edge_tts_audio(cleaned_text, temp_file, voice=voice))
+            _run_coroutine(_generate_edge_tts_audio(cleaned_text, temp_file, voice=voice))
 
             # Play audio
             success = _play_audio_file(temp_file, block=block)
@@ -256,3 +274,24 @@ def is_voice_input_available() -> bool:
 def is_tts_available() -> bool:
     """Checks if either Edge-TTS or pyttsx3 is available."""
     return (_EDGE_TTS_AVAILABLE and _PYGAME_AVAILABLE) or _PYTTSX3_AVAILABLE
+
+
+if __name__ == "__main__":
+    print("\n" + "=" * 50)
+    print("🫧 Testing Bubbles Voice Engine")
+    print("=" * 50)
+    test_phrase = "🫧 Hi Little Star! 🥟 I'm Bubbles, your favorite momo companion! ✨🤍"
+    print(f"\nOriginal text: {test_phrase}")
+    sanitized = clean_text_for_speech(test_phrase)
+    print(f"Sanitized text: {sanitized}")
+
+    print("\n🔊 Speaking test phrase...")
+    success = speak(test_phrase, block=True)
+    print(f"Playback status: {'✅ SUCCESS' if success else '❌ FAILED'}")
+
+    if is_voice_input_available():
+        print("\n🎤 Testing microphone... (Say something within 5s)")
+        result = listen(timeout=5, phrase_time_limit=6)
+        print(f"Recognized speech: {result}")
+    else:
+        print("\n🎤 Microphone hardware not detected (Text input will be used).")

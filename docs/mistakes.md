@@ -57,4 +57,11 @@ A running engineering log of mistakes made, why they happened, and how they were
 - **Root Cause**: When the user's OpenAI account had 0 credits (`credit_balance_exhausted` 429), `generate_response()` sequentially retried all 3 fallback models (`gpt-4o-mini`, `gpt-4o`, `gpt-3.5-turbo`) over the network instead of failing fast, and `main.py` had only a single hardcoded fallback message.
 - **Fix**: Implemented fast-fail on `RateLimitError` (`insufficient_quota`) and `AuthenticationError` to eliminate latency, added user-visible diagnostic alerts with billing URL, and implemented dynamic context-aware fallback generation (`get_dynamic_fallback()`) in `main.py`.
 
+---
+
+### Mistake #009: Backslash Escape Inside F-String Expression in Python < 3.12
+- **Symptom**: `SyntaxError: f-string expression part cannot include a backslash` when launching `main.py` on Python 3.10.
+- **Root Cause**: In Python versions earlier than 3.12, backslashes (`\"`) are strictly forbidden inside f-string interpolation braces `{...}`.
+- **Fix**: Precomputed conditional status string variables (`brain_status`, `tts_status`, `mic_status`) before f-string printing.
+
 

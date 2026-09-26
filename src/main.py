@@ -99,11 +99,15 @@ def start_bubbles():
     mic_ready = is_voice_input_available()
     voice_enabled = tts_ready
 
+    brain_status = "[ONLINE]" if is_available() else "[OFFLINE FALLBACK]"
+    tts_status = "[ONLINE - Baby Dory Neural]" if tts_ready else "[DISABLED]"
+    mic_status = '[READY - type "mic" to speak]' if mic_ready else "[TEXT ONLY]"
+
     print("\n" + "=" * 55)
     print("🫧  Bubbles is waking up...")
-    print(f"🧠  Brain:        {'[ONLINE]' if is_available() else '[OFFLINE FALLBACK]'}")
-    print(f"🔊  Voice Output: {'[ONLINE - Baby Dory Neural]' if tts_ready else '[DISABLED]'}")
-    print(f"🎤  Voice Input:  {'[READY - type \"mic\" to speak]' if mic_ready else '[TEXT ONLY]'}")
+    print(f"🧠  Brain:        {brain_status}")
+    print(f"🔊  Voice Output: {tts_status}")
+    print(f"🎤  Voice Input:  {mic_status}")
     print("=" * 55)
 
     # Check if returning human or first meeting
@@ -154,7 +158,7 @@ def start_bubbles():
             if not spoken_text:
                 print("🫧 Bubbles: I couldn't hear anything, tiny human. Try again or type it! 🤍")
                 continue
-            print(f"🗣️ (Heard): \"{spoken_text}\"")
+            print(f"🗣️ (Heard): {spoken_text}")
             user_message = spoken_text
         elif user_input.lower() == "mute":
             voice_enabled = False
