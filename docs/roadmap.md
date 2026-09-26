@@ -44,12 +44,12 @@
 
 ---
 
-## Phase 5 — Voice
+## Phase 5 — Voice ✅
 
-- Speech Recognition
-- Text-to-Speech
-- Interruptions
-- Natural Conversations
+- Speech Recognition (Microphone STT)
+- Text-to-Speech (Baby Dory Neural Voice & Offline Fallback)
+- Dialogue Sanitization & Audio Pipeline
+- Natural Conversations & Voice Toggle
 
 ---
 

@@ -23,6 +23,12 @@ try:
         save_conversation_turn,
         format_memory_context,
     )
+    from voice import (
+        speak,
+        listen,
+        is_tts_available,
+        is_voice_input_available,
+    )
 except ImportError:
     from src.brain import think
     from src.llm_provider import is_available
@@ -33,6 +39,12 @@ except ImportError:
         save_memory,
         save_conversation_turn,
         format_memory_context,
+    )
+    from src.voice import (
+        speak,
+        listen,
+        is_tts_available,
+        is_voice_input_available,
     )
 
 
@@ -83,8 +95,15 @@ def start_bubbles():
     # Initialize persistent memory database
     init_db()
 
+    tts_ready = is_tts_available()
+    mic_ready = is_voice_input_available()
+    voice_enabled = tts_ready
+
     print("\n" + "=" * 55)
     print("🫧  Bubbles is waking up...")
+    print(f"🧠  Brain:        {'[ONLINE]' if is_available() else '[OFFLINE FALLBACK]'}")
+    print(f"🔊  Voice Output: {'[ONLINE - Baby Dory Neural]' if tts_ready else '[DISABLED]'}")
+    print(f"🎤  Voice Input:  {'[READY - type \"mic\" to speak]' if mic_ready else '[TEXT ONLY]'}")
     print("=" * 55)
 
     # Check if returning human or first meeting
@@ -94,7 +113,10 @@ def start_bubbles():
     if stored_name:
         user_name = stored_name
         nickname = stored_nickname or stored_name
-        print(f"\nBubbles: Welcome back, {nickname}! 🫧🤍 I missed you so much!")
+        greeting = f"Welcome back, {nickname}! 🫧🤍 I missed you so much!"
+        print(f"\nBubbles: {greeting}")
+        if voice_enabled:
+            speak(f"Welcome back, {nickname}! I missed you so much!")
     else:
         user_name = input("\nWhat's your name? ").strip()
         if not user_name:
@@ -103,22 +125,55 @@ def start_bubbles():
         nickname = f"Pocket Human {user_name}"
         set_profile_value("user_name", user_name)
         set_profile_value("nickname", nickname)
-        print(f"\nBubbles: Hi {user_name}! From now on, you're my favorite {nickname}! 🫧🤍")
+        greeting = f"Hi {user_name}! From now on, you're my favorite {nickname}! 🫧🤍"
+        print(f"\nBubbles: {greeting}")
+        if voice_enabled:
+            speak(f"Hi {user_name}! From now on, you are my favorite {nickname}!")
 
-    print("\n(Type 'bye' or 'exit' to end conversation)\n" + "-" * 55)
+    print("\n(Commands: 'mic' = speak into mic, 'mute'/'unmute' = toggle voice, 'bye' = exit)\n" + "-" * 55)
 
     while True:
         try:
-            user_message = input(f"\n{nickname}: ").strip()
+            prompt_label = f"\n{nickname}: "
+            user_input = input(prompt_label).strip()
         except (KeyboardInterrupt, EOFError):
             print("\n\n🫧 *gasps* Goodbye tiny human! 🤍")
+            if voice_enabled:
+                speak("Goodbye tiny human! Take care!")
             break
 
-        if not user_message:
+        if not user_input:
             continue
 
+        # Handle Voice Input Command
+        if user_input.lower() in ["mic", "/mic", "listen", "voice", "/voice"]:
+            if not mic_ready:
+                print("⚠️ Microphone is not available. Please type your message instead.")
+                continue
+            spoken_text = listen(timeout=5, phrase_time_limit=10)
+            if not spoken_text:
+                print("🫧 Bubbles: I couldn't hear anything, tiny human. Try again or type it! 🤍")
+                continue
+            print(f"🗣️ (Heard): \"{spoken_text}\"")
+            user_message = spoken_text
+        elif user_input.lower() == "mute":
+            voice_enabled = False
+            print("🔇 Voice output muted.")
+            continue
+        elif user_input.lower() == "unmute":
+            voice_enabled = True
+            print("🔊 Voice output enabled.")
+            if tts_ready:
+                speak("Voice protocol re-activated!")
+            continue
+        else:
+            user_message = user_input
+
         if user_message.lower() in ["bye", "exit", "quit", "goodbye"]:
-            print(f"\nBubbles: Aww... okay {nickname}. Come back soon! 🤍🫧")
+            farewell = f"Aww... okay {nickname}. Come back soon! 🤍🫧"
+            print(f"\nBubbles: {farewell}")
+            if voice_enabled:
+                speak(f"Aww, okay {nickname}. Come back soon!")
             break
 
         # Save user message to persistent conversation history
@@ -136,7 +191,7 @@ def start_bubbles():
         # Fetch relevant memories and recent conversation context
         memory_context = format_memory_context()
 
-        # Generate response through Bubbles' Master Instructions & OpenAI
+        # Generate response through Bubbles' Master Instructions & OpenAI/Gemini
         ai_response = think(
             user_message=user_message,
             user_name=user_name,
@@ -151,6 +206,10 @@ def start_bubbles():
             final_response = get_dynamic_fallback(user_message, nickname)
 
         print(f"\nBubbles: {final_response}")
+
+        # Speak Bubbles' response aloud with sanitized Baby Dory neural voice
+        if voice_enabled:
+            speak(final_response)
 
         # Save Bubbles' response to persistent conversation history
         save_conversation_turn("Bubbles", final_response)

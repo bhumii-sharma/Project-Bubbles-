@@ -258,6 +258,16 @@ Remembering the user across sessions, tracking life events, and providing conver
 
 ---
 
+voice.py
+
+Purpose:
+Speech synthesis (TTS) and speech recognition (STT) engine for Bubbles.
+
+Responsible for:
+Giving Bubbles a cute, warm voice (Baby Dory inspired via Edge-TTS neural voices), cleaning dialogue text (stripping emojis/roleplay asterisks for natural audio), listening to microphone input, and providing zero-network offline TTS fallback (pyttsx3).
+
+---
+
 # Completed Features
 
 ✅ GitHub Repository
@@ -280,7 +290,7 @@ Remembering the user across sessions, tracking life events, and providing conver
 
 ✅ Nickname Generator
 
-✅ Gemini AI Brain Integration
+✅ Gemini & OpenAI AI Brain Integration
 
 ✅ Hybrid Conversation Loop with Resilient Fallback (ADR #002)
 
@@ -293,6 +303,16 @@ Remembering the user across sessions, tracking life events, and providing conver
 ✅ Long-Term Life Event & Preference Logging
 
 ✅ Context-Aware Dialogue Injection
+
+✅ Baby Dory Neural Voice Synthesis (Edge-TTS `en-US-AnaNeural`)
+
+✅ Dialogue Sanitization Pipeline (Emoji & Stage Direction Stripping)
+
+✅ Offline SAPI5 / pyttsx3 TTS Fallback
+
+✅ Microphone Speech Recognition (STT via Google Web Speech)
+
+✅ Voice Input / Output Session Controls (`mic`, `mute`, `unmute`)
 
 
 ---
@@ -362,18 +382,19 @@ Version 0.1
 ✅ Conversation Loop
 
 Version 0.2
-⬜ Memory System (SQLite)
-⬜ Persistent Database
-⬜ Context Awareness
+✅ Memory System (SQLite)
+✅ Persistent Database
+✅ Context Awareness
 
 Version 0.3
-✅ AI Brain (Gemini 2.5 Flash)
+✅ AI Brain (Gemini 2.5 Flash / OpenAI GPT-4o)
 ✅ LLM Integration
 ✅ Better Conversations
 
 Version 0.4
-⬜ Voice Recognition
-⬜ Speech Output
+✅ Voice Recognition (Microphone STT)
+✅ Speech Output (Baby Dory Neural Voice + pyttsx3)
+✅ Dialogue Sanitization Engine
 
 Version 0.5
 ⬜ Desktop Companion
@@ -486,6 +507,27 @@ State-of-the-art LLMs (OpenAI GPT-4o) naturally understand sentiment, empathy, h
 
 ### Trade-off
 Relies on prompt engineering clarity and model instruction following rather than deterministic if-else rules.
+
+---
+
+## Architecture Decision #007
+
+### Title
+Hybrid Voice Engine & Dialogue Audio Pipeline
+
+### Decision
+Implement a standalone Voice module (`src/voice.py`) delivering:
+1. **Primary Neural Speech Synthesis**: Edge-TTS neural voice (`en-US-AnaNeural`) with pitch tuning (`+8Hz`) and rate tuning (`+5%`) for a sweet, cheerful Baby Dory companion voice.
+2. **Offline Fallback Speech Synthesis**: Local OS SAPI5 / espeak via `pyttsx3` ensuring audio playback even without internet.
+3. **Dialogue Text Sanitization**: Dedicated regex pipeline `clean_text_for_speech()` that strips emojis (🫧, 🥟, ✨) and roleplay stage directions (`*gasps*`, `*hugs*`) so Bubbles speaks naturally without reading formatting symbols aloud.
+4. **Speech Recognition (STT)**: Microphone listening with ambient noise calibration via Google Web Speech.
+5. **Interactive Controls**: Non-blocking voice playback, seamless `mic` command, and in-session `mute`/`unmute` toggles in `src/main.py`.
+
+### Reason
+Giving Bubbles a living voice is fundamental to her evolution from a text chatbot to a living desktop and physical companion. Clean separation of audio logic prevents coupling with conversational intelligence.
+
+### Trade-off
+Microphone input requires local audio drivers/hardware; handled gracefully by falling back to text typing when microphone is absent.
 
 
 
