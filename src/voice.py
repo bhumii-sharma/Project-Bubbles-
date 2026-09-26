@@ -53,22 +53,22 @@ except ImportError:
     sr = None
 
 
-# Multilingual Voice Profiles (Baby Dory inspired cute, bubbly, child/female voices)
+# Multilingual Voice Profiles (Disney's Finding Dory Hindi dub inspired - Young Dory / Demira Amar Babaria style)
 VOICE_MAP = {
     "hindi": {
-        "voice": "hi-IN-SwaraNeural",             # High-pitch, adorable Baby Dory Hindi voice
-        "pitch": "+22Hz",
-        "rate": "+6%",
+        "voice": "hi-IN-SwaraNeural",             # Authentic Finding Dory Hindi Dub child voice
+        "pitch": "+28Hz",
+        "rate": "+8%",
     },
     "hinglish": {
-        "voice": "en-IN-NeerjaExpressiveNeural",  # High-pitch, sweet Baby Dory Hinglish voice
-        "pitch": "+20Hz",
-        "rate": "+6%",
+        "voice": "hi-IN-SwaraNeural",             # High-pitch Baby Dory for Hinglish & Hindi
+        "pitch": "+26Hz",
+        "rate": "+8%",
     },
     "english": {
         "voice": "en-US-AnaNeural",                # Cheerful Baby Dory English voice
-        "pitch": "+10Hz",
-        "rate": "+5%",
+        "pitch": "+12Hz",
+        "rate": "+6%",
     },
 }
 

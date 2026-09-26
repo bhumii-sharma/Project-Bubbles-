@@ -84,7 +84,7 @@ def test_detect_language_hinglish():
     lang = detect_language("kaise ho aap? aaj bohot thak gayi hoon, momo khana hai")
     assert lang == "hinglish"
     voice, _, _ = get_voice_for_text("kaise ho aap")
-    assert "en-IN" in voice or "Neerja" in voice
+    assert "hi-IN" in voice or "Swara" in voice
 
 
 def test_detect_language_english():
