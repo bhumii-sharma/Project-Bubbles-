@@ -144,22 +144,23 @@ def start_bubbles():
     while True:
         user_message = None
 
-        # 1. Continuous Hands-Free Voice Mode (if microphone is available)
+        # 1. Hands-Free Voice Listening Mode (when microphone is available)
         if mic_ready:
-            spoken_text = listen(timeout=6, phrase_time_limit=8)
+            spoken_text = listen(timeout=7, phrase_time_limit=15)
             if spoken_text:
                 print(f"\n{nickname} (voice): {spoken_text}")
                 user_message = spoken_text
-
-        # 2. Keyboard Input Fallback (if mic not available or timed out with silence)
-        if not user_message:
+            else:
+                # Silence / timeout: continue loop to keep listening hands-free
+                continue
+        else:
+            # 2. Keyboard Input Mode (fallback if no microphone is plugged in)
             try:
                 prompt_label = f"\n{nickname}: "
                 user_input = input(prompt_label).strip()
                 if user_input:
                     user_message = user_input
                 else:
-                    # If user just pressed Enter, loop back to listen again
                     continue
             except (KeyboardInterrupt, EOFError):
                 print("\n\n🫧 *gasps* Goodbye tiny human! 🤍")
@@ -169,7 +170,7 @@ def start_bubbles():
 
         msg_clean = user_message.lower().strip().strip(".!?,")
 
-        # Handle Commands (spoken or typed)
+        # Handle Voice / Session Commands
         if msg_clean in ["mute", "stop talking", "turn off voice"]:
             voice_enabled = False
             print("🔇 Voice output muted.")
@@ -202,7 +203,7 @@ def start_bubbles():
         # Fetch relevant memories and recent conversation context
         memory_context = format_memory_context()
 
-        # Generate response through Bubbles' Master Instructions & Google Gemini / OpenAI
+        # Generate response through Bubbles' Master Instructions & Google Gemini
         ai_response = think(
             user_message=user_message,
             user_name=user_name,
@@ -213,7 +214,7 @@ def start_bubbles():
         if ai_response:
             final_response = ai_response.strip()
         else:
-            # Varied, dynamic offline fallback
+            # Varied, dynamic fallback
             final_response = get_dynamic_fallback(user_message, nickname)
 
         print(f"\nBubbles: {final_response}")
