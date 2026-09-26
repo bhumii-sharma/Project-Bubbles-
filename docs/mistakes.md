@@ -70,3 +70,14 @@ A running engineering log of mistakes made, why they happened, and how they were
 - **Symptom**: Repetitive canned fallback replies when user talked to Bubbles in terminal.
 - **Root Cause**: `GEMINI_MODELS` list contained `gemini-1.5-flash` which was retired/not found (404) and `gemini-2.5-flash` which reached rate limit quotas (429). When both failed, `generate_response()` returned `None`, triggering repetitive static offline fallback lines in `main.py`.
 - **Fix**: Updated `GEMINI_MODELS` to use current active high-throughput models (`gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-2.5-flash-lite`, `gemini-2.5-flash`, `gemini-2.5-pro`). Verified dynamic sub-second generative intelligence on every turn.
+
+---
+
+### Mistake #011: Unvalidated Audio Triggers During Playback Causing Hyper-Sensitive Self-Interruption
+- **Symptom**: Bubbles stopped talking mid-sentence whenever the user took a breath, shifted in their seat, or when laptop speakers played Bubbles' own voice.
+- **Root Cause**:
+  1. `energy_threshold` was set too low (`180`), capturing breathing, ambient room noise, and speaker bleed.
+  2. The interruption callback immediately halted audio playback (`pygame.mixer.music.stop()`) on *raw sound detection* before verifying if actual human words were spoken.
+- **Fix**:
+  1. Implemented **Word-Verified Interruption**: Speech recognition now transcribes the audio chunk first; playback is ONLY stopped if valid, recognizable speech words (`len(transcript) >= 2`) are detected. Coughs, breathing, and ambient noise are ignored.
+  2. Balanced `energy_threshold = 380` (normal listening) and `550` (during playback) with `phrase_threshold = 0.35s` to filter out non-verbal audio.

@@ -70,18 +70,20 @@ _calibrated = False
 
 
 def _get_recognizer():
-    """Lazily initializes and tunes SpeechRecognizer for high sensitivity and natural speaking flow."""
+    """Lazily initializes and tunes SpeechRecognizer with balanced sensitivity."""
     global _recognizer
     if not _SR_AVAILABLE or sr is None:
         return None
     with _sr_lock:
         if _recognizer is None:
             _recognizer = sr.Recognizer()
-            # Fixed high-sensitivity threshold to prevent ambient noise from muting soft speech
-            _recognizer.energy_threshold = 180
-            _recognizer.dynamic_energy_threshold = False  # Consistent high sensitivity
-            _recognizer.pause_threshold = 1.0  # Natural breathing pause (1.0s) so it doesn't cut off mid-sentence
-            _recognizer.phrase_threshold = 0.2
+            # Balanced energy threshold to ignore breathing, sighing, and ambient background hum
+            _recognizer.energy_threshold = 380
+            _recognizer.dynamic_energy_threshold = True
+            _recognizer.dynamic_energy_adjustment_damping = 0.15
+            _recognizer.dynamic_energy_ratio = 1.5
+            _recognizer.pause_threshold = 0.8  # Natural conversational pause
+            _recognizer.phrase_threshold = 0.3  # Requires intentional speech, ignores quick sniffs/clicks
             _recognizer.non_speaking_duration = 0.4
         return _recognizer
 
@@ -209,14 +211,11 @@ def _run_coroutine(coro):
 def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, block: bool = True, allow_interrupt: bool = True) -> dict:
     """
     Speaks the given text using high-quality Baby Dory neural TTS (en-US-AnaNeural)
-    with seamless offline fallback (pyttsx3) and real-time interruption (barge-in) detection.
+    with seamless offline fallback (pyttsx3) and verified real-time interruption (barge-in).
 
-    Returns dict:
-        {
-            "success": bool,
-            "interrupted": bool,
-            "user_text": str | None
-        }
+    Verified Interruption Guarantee:
+    - Audio is ONLY stopped if actual recognized human speech is detected.
+    - Breathing, sighs, coughs, and ambient noise are ignored, allowing speech to continue uninterrupted.
     """
     cleaned_text = clean_text_for_speech(text)
     if not cleaned_text:
@@ -255,36 +254,45 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
             recognized_holder = {"text": None}
 
             stop_listener = None
-            rec = _get_recognizer()
 
-            if allow_interrupt and _SR_AVAILABLE and sr is not None and rec:
+            if allow_interrupt and _SR_AVAILABLE and sr is not None:
+                # Dedicated interruption recognizer with higher threshold to prevent speaker feedback & breath triggers
+                inter_rec = sr.Recognizer()
+                inter_rec.energy_threshold = 550  # Intentional human voice threshold
+                inter_rec.dynamic_energy_threshold = False
+                inter_rec.phrase_threshold = 0.35  # Requires intentional speech (filters out short breath/rustle)
+                inter_rec.pause_threshold = 0.8
+
                 def _on_phrase_detected(recognizer, audio):
-                    # Immediately cut off audio playback the millisecond user speaks
-                    try:
-                        if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
-                            pygame.mixer.music.stop()
-                    except Exception:
-                        pass
-                    interrupted_event.set()
-
-                    # Transcribe interruption speech
+                    # 1. First verify if actual human words were spoken (DO NOT cut off on noise/breathing)
+                    spoken_text = None
                     for lang in ["en-IN", "en-US", "hi-IN"]:
                         try:
                             transcript = recognizer.recognize_google(audio, language=lang)
-                            if transcript and transcript.strip():
-                                recognized_holder["text"] = transcript.strip()
+                            if transcript and len(transcript.strip()) >= 2:
+                                spoken_text = transcript.strip()
                                 break
                         except Exception:
                             continue
 
+                    # 2. ONLY cut off playback if valid speech was recognized!
+                    if spoken_text:
+                        try:
+                            if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+                                pygame.mixer.music.stop()
+                        except Exception:
+                            pass
+                        recognized_holder["text"] = spoken_text
+                        interrupted_event.set()
+
                 try:
                     mic = sr.Microphone()
-                    stop_listener = rec.listen_in_background(mic, _on_phrase_detected, phrase_time_limit=12)
+                    stop_listener = inter_rec.listen_in_background(mic, _on_phrase_detected, phrase_time_limit=10)
                 except Exception:
                     stop_listener = None
 
             try:
-                # Wait for audio to finish OR until interrupted by user
+                # Wait for audio to finish OR until verified interruption occurs
                 while pygame.mixer.music.get_busy():
                     if interrupted_event.is_set():
                         break
@@ -297,12 +305,6 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
                         pass
 
             if interrupted_event.is_set():
-                # Allow a short grace window (up to 1s) for transcription to complete
-                for _ in range(20):
-                    if recognized_holder["text"]:
-                        break
-                    time.sleep(0.05)
-
                 try:
                     pygame.mixer.music.stop()
                     pygame.mixer.music.unload()
@@ -343,8 +345,8 @@ def speak(text: str, voice: str = None, pitch: str = None, rate: str = None, blo
 
 def listen(timeout: int = 7, phrase_time_limit: int = 15, language: str = DEFAULT_LANGUAGE) -> str | None:
     """
-    Captures audio from the microphone with high sensitivity and converts speech to text.
-    Uses multi-accent recognition (en-IN Indian English, en-US US English, and hi-IN).
+    Captures audio from the microphone with balanced sensitivity and converts speech to text.
+    Filters out background noise, breathing, and sighing while reliably capturing conversational speech.
     Returns the recognized string, or None if silence/timeout.
     """
     if not _SR_AVAILABLE or sr is None:
@@ -364,7 +366,7 @@ def listen(timeout: int = 7, phrase_time_limit: int = 15, language: str = DEFAUL
         # 1. Primary recognition (Indian English / en-IN - highly accurate for Indian English speech)
         try:
             transcript = recognizer.recognize_google(audio, language="en-IN")
-            if transcript and transcript.strip():
+            if transcript and len(transcript.strip()) >= 2:
                 return transcript.strip()
         except sr.UnknownValueError:
             pass
@@ -372,7 +374,7 @@ def listen(timeout: int = 7, phrase_time_limit: int = 15, language: str = DEFAUL
         # 2. Secondary fallback (US English / en-US)
         try:
             transcript = recognizer.recognize_google(audio, language="en-US")
-            if transcript and transcript.strip():
+            if transcript and len(transcript.strip()) >= 2:
                 return transcript.strip()
         except sr.UnknownValueError:
             pass
@@ -380,7 +382,7 @@ def listen(timeout: int = 7, phrase_time_limit: int = 15, language: str = DEFAUL
         # 3. Tertiary fallback (Hindi / hi-IN)
         try:
             transcript = recognizer.recognize_google(audio, language="hi-IN")
-            if transcript and transcript.strip():
+            if transcript and len(transcript.strip()) >= 2:
                 return transcript.strip()
         except Exception:
             pass
@@ -415,7 +417,7 @@ def is_tts_available() -> bool:
 
 if __name__ == "__main__":
     print("\n" + "=" * 50)
-    print("🫧 Testing Bubbles Voice Engine (English Baby Dory with Interruption)")
+    print("🫧 Testing Bubbles Voice Engine (English Baby Dory with Verified Interruption)")
     print("=" * 50)
     test_phrase = "🫧 Hi Little Star! 🥟 I'm Bubbles, your favorite momo companion! ✨🤍"
     print(f"\nOriginal text: {test_phrase}")
